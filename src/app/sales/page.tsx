@@ -4,14 +4,11 @@ import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
-export default function Home() {
+export default function SalesPage() {
   return (
     <Container maxWidth="lg">
       <Box sx={{ py: 4 }}>
-        <Typography variant="h5">쿠팡 판매 관리</Typography>
-        <Typography color="text.secondary">
-          상단 메뉴에서 원하는 기능을 선택하세요.
-        </Typography>
+        <Typography variant="h5">매출 분석</Typography>
       </Box>
     </Container>
   );
