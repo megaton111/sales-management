@@ -28,11 +28,15 @@ type ProductSale = {
   productId: string;
   category: string;
   selling_price: number;
+  supply_price: number;
   market_commission: number;
   unit_cost: number;
   warehouse_fee: number;
   shipping_fee: number;
+  barcode_fee: number;
+  box_fee: number;
   profit: number;
+  margin_rate: number;
 };
 
 type Column = {
@@ -49,19 +53,27 @@ const columns: Column[] = [
   { label: "상품ID", key: "productId" },
   { label: "구분", key: "category", editable: true },
   { label: "실제 판매가", key: "selling_price", numeric: true, editable: true, suffix: "원" },
+  { label: "공급가", key: "supply_price", numeric: true, suffix: "원" },
   { label: "이익금", key: "profit", numeric: true, highlight: true, suffix: "원" },
+  { label: "마진율", key: "margin_rate", numeric: true, highlight: true, suffix: "%" },
   { label: "마켓수수료", key: "market_commission", numeric: true, editable: true, suffix: "원" },
   { label: "원가", key: "unit_cost", numeric: true, editable: true, suffix: "원" },
   { label: "입출고요금", key: "warehouse_fee", numeric: true, editable: true, suffix: "원" },
   { label: "배송비", key: "shipping_fee", numeric: true, editable: true, suffix: "원" },
+  { label: "바코드 작업비", key: "barcode_fee", numeric: true, suffix: "원" },
+  { label: "박스비", key: "box_fee", numeric: true, suffix: "원" },
 ];
 
 function fmt(v: number) {
   return v.toLocaleString("ko-KR");
 }
 
+function calcSupplyPrice(sellingPrice: number): number {
+  return Math.round(sellingPrice / 1.1);
+}
+
 function calcProfit(sale: ProductSale): number {
-  return sale.selling_price - sale.market_commission - sale.unit_cost - sale.warehouse_fee - sale.shipping_fee;
+  return sale.supply_price - sale.market_commission - sale.unit_cost - sale.warehouse_fee - sale.shipping_fee - sale.barcode_fee - sale.box_fee;
 }
 
 export default function ProductsPage() {
@@ -105,6 +117,8 @@ export default function ProductsPage() {
         unit_cost: number;
         warehouse_fee: number;
         shipping_fee: number;
+        barcode_fee: number;
+        box_fee: number;
         profit: number;
       }> = {};
       salesData?.forEach((s: {
@@ -115,6 +129,8 @@ export default function ProductsPage() {
         unit_cost: number;
         warehouse_fee: number;
         shipping_fee: number;
+        barcode_fee: number;
+        box_fee: number;
         profit: number;
       }) => {
         savedSales[s.name] = s;
@@ -123,28 +139,39 @@ export default function ProductsPage() {
       const list: ProductSale[] = Object.keys(productIdMap).map((name) => {
         const saved = savedSales[name];
         if (saved) {
-          return {
+          const sale = {
             name,
             productId: productIdMap[name],
             category: saved.category,
             selling_price: saved.selling_price,
+            supply_price: calcSupplyPrice(saved.selling_price),
             market_commission: saved.market_commission,
             unit_cost: saved.unit_cost,
             warehouse_fee: saved.warehouse_fee,
             shipping_fee: saved.shipping_fee,
-            profit: saved.profit,
+            barcode_fee: saved.barcode_fee ?? 150,
+            box_fee: saved.box_fee ?? 100,
+            profit: 0,
+            margin_rate: 0,
           };
+          sale.profit = calcProfit(sale);
+          sale.margin_rate = sale.selling_price > 0 ? Math.round((sale.profit / sale.selling_price) * 1000) / 10 : 0;
+          return sale;
         }
         return {
           name,
           productId: productIdMap[name],
           category: "",
           selling_price: 0,
+          supply_price: 0,
           market_commission: 0,
           unit_cost: avgMap[name] || 0,
           warehouse_fee: 0,
           shipping_fee: 0,
+          barcode_fee: 150,
+          box_fee: 100,
           profit: 0,
+          margin_rate: 0,
         };
       });
 
@@ -180,7 +207,9 @@ export default function ProductsPage() {
         } else {
           (updated[field] as number) = parseFloat(value) || 0;
         }
+        updated.supply_price = calcSupplyPrice(updated.selling_price);
         updated.profit = calcProfit(updated);
+        updated.margin_rate = updated.selling_price > 0 ? Math.round((updated.profit / updated.selling_price) * 1000) / 10 : 0;
         return updated;
       })
     );
@@ -208,6 +237,8 @@ export default function ProductsPage() {
       unit_cost: updated.unit_cost,
       warehouse_fee: updated.warehouse_fee,
       shipping_fee: updated.shipping_fee,
+      barcode_fee: updated.barcode_fee,
+      box_fee: updated.box_fee,
       profit: updated.profit,
       updated_at: new Date().toISOString(),
     });

@@ -194,13 +194,13 @@ function CostRegisterForm() {
 
       const { data: saleRow } = await supabase
         .from("product_sales")
-        .select("selling_price, market_commission, warehouse_fee, shipping_fee")
+        .select("selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee")
         .eq("name", form.name)
         .eq("store_id", storeId)
         .single();
 
       if (saleRow) {
-        const profit = saleRow.selling_price - saleRow.market_commission - avgCost - saleRow.warehouse_fee - saleRow.shipping_fee;
+        const profit = saleRow.selling_price - saleRow.market_commission - avgCost - saleRow.warehouse_fee - saleRow.shipping_fee - saleRow.barcode_fee - saleRow.box_fee;
         await supabase.from("product_sales").update({
           unit_cost: avgCost,
           profit,
