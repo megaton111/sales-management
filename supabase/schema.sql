@@ -63,3 +63,34 @@ create table if not exists product_sales (
   updated_at timestamptz default now(),
   primary key (name, store_id)
 );
+
+-- 일별 매출 요약 (채널별)
+create table if not exists daily_sales (
+  id serial primary key,
+  store_id integer not null references stores(id),
+  sale_date date not null,
+  channel text not null default 'marketplace',
+  total_sale_amount numeric not null default 0,
+  total_settlement_amount numeric not null default 0,
+  order_count integer not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (store_id, sale_date, channel)
+);
+
+-- 일별 매출 상품별 상세
+create table if not exists daily_sales_items (
+  id serial primary key,
+  store_id integer not null references stores(id),
+  sale_date date not null,
+  channel text not null default 'marketplace',
+  vendor_item_id bigint not null,
+  product_name text not null,
+  vendor_item_name text not null,
+  quantity integer not null default 0,
+  sale_amount numeric not null default 0,
+  settlement_amount numeric not null default 0,
+  sale_type text not null default 'SALE',
+  created_at timestamptz default now(),
+  unique (store_id, sale_date, channel, vendor_item_id, sale_type)
+);
