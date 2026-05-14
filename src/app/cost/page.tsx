@@ -17,9 +17,11 @@ import Paper from "@mui/material/Paper";
 import CircularProgress from "@mui/material/CircularProgress";
 import Container from "@mui/material/Container";
 import { createClient } from "@/lib/supabase-browser";
+import { useStore } from "@/contexts/StoreContext";
 
 type Product = {
   id: string;
+  store_id: number;
   name: string;
   country: string;
   exchange_rate: number;
@@ -94,17 +96,20 @@ const columns: Column[] = [
 
 export default function CostPage() {
   const router = useRouter();
+  const { currentStore, loading: storeLoading } = useStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [averages, setAverages] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState(0);
 
   useEffect(() => {
+    if (!currentStore) return;
     const fetchData = async () => {
+      setLoading(true);
       const supabase = createClient();
       const [{ data: productData }, { data: avgData }] = await Promise.all([
-        supabase.from("products").select("*").order("created_at", { ascending: false }),
-        supabase.from("product_averages").select("*"),
+        supabase.from("products").select("*").eq("store_id", currentStore.id).order("created_at", { ascending: false }),
+        supabase.from("product_averages").select("*").eq("store_id", currentStore.id),
       ]);
       setProducts(productData || []);
       const avgMap: Record<string, number> = {};
@@ -112,10 +117,11 @@ export default function CostPage() {
         avgMap[a.name] = a.average_unit_cost;
       });
       setAverages(avgMap);
+      setSelectedTab(0);
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [currentStore]);
 
   const productNames = useMemo(() => {
     const names: string[] = [];
@@ -130,7 +136,7 @@ export default function CostPage() {
     return products.filter((p) => p.name === productNames[selectedTab]);
   }, [products, productNames, selectedTab]);
 
-  if (loading) {
+  if (storeLoading || loading) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>

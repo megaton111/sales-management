@@ -21,9 +21,9 @@ import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import EditIcon from "@mui/icons-material/Edit";
 import { createClient } from "@/lib/supabase-browser";
+import { useStore } from "@/contexts/StoreContext";
 
 type ProductSale = {
-  store: string;
   name: string;
   productId: string;
   category: string;
@@ -45,7 +45,6 @@ type Column = {
 };
 
 const columns: Column[] = [
-  { label: "스토어", key: "store", editable: true },
   { label: "상품명", key: "name" },
   { label: "상품ID", key: "productId" },
   { label: "구분", key: "category", editable: true },
@@ -66,6 +65,7 @@ function calcProfit(sale: ProductSale): number {
 }
 
 export default function ProductsPage() {
+  const { currentStore, loading: storeLoading } = useStore();
   const [sales, setSales] = useState<ProductSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialog, setEditDialog] = useState<{
@@ -77,12 +77,15 @@ export default function ProductsPage() {
   } | null>(null);
 
   useEffect(() => {
+    if (!currentStore) return;
     const fetchData = async () => {
+      setLoading(true);
       const supabase = createClient();
+      const storeId = currentStore.id;
       const [{ data: avgData }, { data: productsData }, { data: salesData }] = await Promise.all([
-        supabase.from("product_averages").select("*"),
-        supabase.from("products").select("id, name").order("created_at", { ascending: true }),
-        supabase.from("product_sales").select("*"),
+        supabase.from("product_averages").select("*").eq("store_id", storeId),
+        supabase.from("products").select("id, name").eq("store_id", storeId).order("created_at", { ascending: true }),
+        supabase.from("product_sales").select("*").eq("store_id", storeId),
       ]);
 
       const productIdMap: Record<string, string> = {};
@@ -96,7 +99,6 @@ export default function ProductsPage() {
       });
 
       const savedSales: Record<string, {
-        store: string;
         category: string;
         selling_price: number;
         market_commission: number;
@@ -107,7 +109,6 @@ export default function ProductsPage() {
       }> = {};
       salesData?.forEach((s: {
         name: string;
-        store: string;
         category: string;
         selling_price: number;
         market_commission: number;
@@ -123,7 +124,6 @@ export default function ProductsPage() {
         const saved = savedSales[name];
         if (saved) {
           return {
-            store: saved.store,
             name,
             productId: productIdMap[name],
             category: saved.category,
@@ -136,7 +136,6 @@ export default function ProductsPage() {
           };
         }
         return {
-          store: "",
           name,
           productId: productIdMap[name],
           category: "",
@@ -153,7 +152,7 @@ export default function ProductsPage() {
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [currentStore]);
 
   const handleEditOpen = (productName: string, field: keyof ProductSale, label: string) => {
     const sale = sales.find((s) => s.name === productName);
@@ -168,7 +167,7 @@ export default function ProductsPage() {
   };
 
   const handleEditSave = async () => {
-    if (!editDialog) return;
+    if (!editDialog || !currentStore) return;
 
     const { productName, field, value } = editDialog;
 
@@ -176,7 +175,7 @@ export default function ProductsPage() {
       prev.map((sale) => {
         if (sale.name !== productName) return sale;
         const updated = { ...sale };
-        if (field === "category" || field === "store") {
+        if (field === "category") {
           (updated[field] as string) = value;
         } else {
           (updated[field] as number) = parseFloat(value) || 0;
@@ -192,7 +191,7 @@ export default function ProductsPage() {
     if (!sale) return;
 
     const updated = { ...sale };
-    if (field === "category" || field === "store") {
+    if (field === "category") {
       (updated[field] as string) = value;
     } else {
       (updated[field] as number) = parseFloat(value) || 0;
@@ -202,7 +201,7 @@ export default function ProductsPage() {
     const supabase = createClient();
     await supabase.from("product_sales").upsert({
       name: productName,
-      store: updated.store,
+      store_id: currentStore.id,
       category: updated.category,
       selling_price: updated.selling_price,
       market_commission: updated.market_commission,
@@ -214,7 +213,7 @@ export default function ProductsPage() {
     });
   };
 
-  if (loading) {
+  if (storeLoading || loading) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>
@@ -318,7 +317,7 @@ export default function ProductsPage() {
             onChange={(e) =>
               setEditDialog((prev) => (prev ? { ...prev, value: e.target.value } : null))
             }
-            type={editDialog?.field === "category" || editDialog?.field === "store" ? "text" : "number"}
+            type={editDialog?.field === "category" ? "text" : "number"}
             size="small"
             sx={{ mt: 1 }}
           />

@@ -1,5 +1,13 @@
+-- 스토어 테이블
+create table if not exists stores (
+  id serial primary key,
+  name text not null unique,
+  created_at timestamptz default now()
+);
+
 create table if not exists products (
   id text primary key,
+  store_id integer not null references stores(id),
   name text not null,
   country text not null check (country in ('US', 'CN')),
   exchange_rate numeric not null,
@@ -32,14 +40,16 @@ create table if not exists products (
 );
 
 create table if not exists product_averages (
-  name text primary key,
+  name text not null,
+  store_id integer not null references stores(id),
   average_unit_cost numeric not null default 0,
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  primary key (name, store_id)
 );
 
 create table if not exists product_sales (
-  name text primary key,
-  store text default '',
+  name text not null,
+  store_id integer not null references stores(id),
   category text default '',
   selling_price numeric not null default 0,
   market_commission numeric not null default 0,
@@ -48,5 +58,6 @@ create table if not exists product_sales (
   shipping_fee numeric not null default 0,
   profit numeric not null default 0,
   created_at timestamptz default now(),
-  updated_at timestamptz default now()
+  updated_at timestamptz default now(),
+  primary key (name, store_id)
 );

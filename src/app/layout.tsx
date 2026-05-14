@@ -4,6 +4,7 @@ import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import theme from "@/lib/theme";
 import GNB from "@/components/GNB";
+import StoreProvider from "@/contexts/StoreContext";
 
 export const metadata: Metadata = {
   title: "판매 관리",
@@ -29,8 +30,10 @@ export default function RootLayout({
         <AppRouterCacheProvider>
           <ThemeProvider theme={theme}>
             <CssBaseline />
-            <GNB />
-            {children}
+            <StoreProvider>
+              <GNB />
+              {children}
+            </StoreProvider>
           </ThemeProvider>
         </AppRouterCacheProvider>
       </body>

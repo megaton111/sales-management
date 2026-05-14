@@ -14,6 +14,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import { createClient } from "@/lib/supabase-browser";
 import { generateProductId } from "@/utils/generateId";
+import { useStore } from "@/contexts/StoreContext";
 
 type FormData = {
   name: string;
@@ -77,6 +78,7 @@ export default function CostRegisterPage() {
 function CostRegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { currentStore } = useStore();
   const prefillName = searchParams.get("name") || "";
   const [form, setForm] = useState<FormData>({ ...initialForm, name: prefillName });
   const [saving, setSaving] = useState(false);
@@ -126,6 +128,10 @@ function CostRegisterForm() {
   }, [form]);
 
   const handleSave = async () => {
+    if (!currentStore) {
+      setSnackbar({ open: true, message: "스토어를 먼저 선택해주세요.", severity: "error" });
+      return;
+    }
     if (!form.name || !form.exchangeRate || !form.quantity || !form.unitPriceForeign) {
       setSnackbar({ open: true, message: "상품명, 환율, 수량, 상품가를 입력해주세요.", severity: "error" });
       return;
@@ -135,9 +141,11 @@ function CostRegisterForm() {
     try {
       const supabase = createClient();
       const id = generateProductId();
+      const storeId = currentStore.id;
 
       const { error } = await supabase.from("products").insert({
         id,
+        store_id: storeId,
         name: form.name,
         country: form.country,
         exchange_rate: num(form.exchangeRate),
@@ -172,12 +180,14 @@ function CostRegisterForm() {
       const { data: allEntries } = await supabase
         .from("products")
         .select("unit_cost")
-        .eq("name", form.name);
+        .eq("name", form.name)
+        .eq("store_id", storeId);
       const costs = allEntries?.map((e) => e.unit_cost) || [];
       const avgCost = Math.round(costs.reduce((a: number, b: number) => a + b, 0) / costs.length);
 
       await supabase.from("product_averages").upsert({
         name: form.name,
+        store_id: storeId,
         average_unit_cost: avgCost,
         updated_at: new Date().toISOString(),
       });
@@ -186,6 +196,7 @@ function CostRegisterForm() {
         .from("product_sales")
         .select("selling_price, market_commission, warehouse_fee, shipping_fee")
         .eq("name", form.name)
+        .eq("store_id", storeId)
         .single();
 
       if (saleRow) {
@@ -194,7 +205,7 @@ function CostRegisterForm() {
           unit_cost: avgCost,
           profit,
           updated_at: new Date().toISOString(),
-        }).eq("name", form.name);
+        }).eq("name", form.name).eq("store_id", storeId);
       }
 
       setSnackbar({ open: true, message: `저장 완료 (ID: ${id})`, severity: "success" });

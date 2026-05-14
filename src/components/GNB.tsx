@@ -1,11 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Divider from "@mui/material/Divider";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import TextField from "@mui/material/TextField";
+import StorefrontIcon from "@mui/icons-material/Storefront";
+import CheckIcon from "@mui/icons-material/Check";
+import AddIcon from "@mui/icons-material/Add";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import { useStore } from "@/contexts/StoreContext";
 
 const menus = [
   { label: "매입가 관리", href: "/cost" },
@@ -15,31 +31,124 @@ const menus = [
 
 export default function GNB() {
   const pathname = usePathname();
+  const { stores, currentStore, setCurrentStore, addStore, loading } = useStore();
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [addDialog, setAddDialog] = useState(false);
+  const [newStoreName, setNewStoreName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleAddStore = async () => {
+    if (!newStoreName.trim()) return;
+    setSaving(true);
+    const created = await addStore(newStoreName.trim());
+    if (created) {
+      setCurrentStore(created);
+    }
+    setNewStoreName("");
+    setSaving(false);
+    setAddDialog(false);
+    setAnchorEl(null);
+  };
 
   return (
-    <AppBar
-      position="static"
-      elevation={0}
-      sx={{ backgroundColor: "transparent", borderBottom: 1, borderColor: "divider" }}
-    >
-      <Toolbar variant="dense">
-        <Box sx={{ display: "flex", gap: 0.5 }}>
-          {menus.map((menu) => (
+    <>
+      <AppBar
+        position="static"
+        elevation={0}
+        sx={{ backgroundColor: "transparent", borderBottom: 1, borderColor: "divider" }}
+      >
+        <Toolbar variant="dense" sx={{ justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", gap: 0.5 }}>
+            {menus.map((menu) => (
+              <Button
+                key={menu.href}
+                component={Link}
+                href={menu.href}
+                size="small"
+                sx={{
+                  color: pathname === menu.href ? "primary.main" : "text.secondary",
+                  fontWeight: pathname === menu.href ? 700 : 400,
+                }}
+              >
+                {menu.label}
+              </Button>
+            ))}
+          </Box>
+
+          {!loading && currentStore && (
             <Button
-              key={menu.href}
-              component={Link}
-              href={menu.href}
               size="small"
-              sx={{
-                color: pathname === menu.href ? "primary.main" : "text.secondary",
-                fontWeight: pathname === menu.href ? 700 : 400,
+              startIcon={<StorefrontIcon sx={{ fontSize: 18 }} />}
+              endIcon={<ArrowDropDownIcon />}
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              sx={{ color: "text.primary", textTransform: "none", fontWeight: 600 }}
+            >
+              {currentStore.name}
+            </Button>
+          )}
+
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={() => setAnchorEl(null)}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+          >
+            {stores.map((store) => (
+              <MenuItem
+                key={store.id}
+                onClick={() => {
+                  setCurrentStore(store);
+                  setAnchorEl(null);
+                }}
+                selected={store.id === currentStore?.id}
+              >
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  {store.id === currentStore?.id ? <CheckIcon fontSize="small" /> : null}
+                </ListItemIcon>
+                <ListItemText>{store.name}</ListItemText>
+              </MenuItem>
+            ))}
+            <Divider />
+            <MenuItem
+              onClick={() => {
+                setAddDialog(true);
               }}
             >
-              {menu.label}
-            </Button>
-          ))}
-        </Box>
-      </Toolbar>
-    </AppBar>
+              <ListItemIcon sx={{ minWidth: 28 }}>
+                <AddIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>스토어 추가</ListItemText>
+            </MenuItem>
+          </Menu>
+        </Toolbar>
+      </AppBar>
+
+      <Dialog open={addDialog} onClose={() => setAddDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: "1rem" }}>스토어 추가</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            autoFocus
+            label="스토어명"
+            value={newStoreName}
+            onChange={(e) => setNewStoreName(e.target.value)}
+            size="small"
+            sx={{ mt: 1 }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleAddStore();
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDialog(false)} size="small">
+            취소
+          </Button>
+          <Button onClick={handleAddStore} variant="contained" size="small" disabled={saving || !newStoreName.trim()}>
+            추가
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
