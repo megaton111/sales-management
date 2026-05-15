@@ -1,23 +1,26 @@
 import { useState, useCallback } from 'react';
 
-interface SalesItem {
+export interface SalesItem {
   id: number;
   vendor_item_id: number;
   product_name: string;
   vendor_item_name: string;
+  channel: string;
   quantity: number;
   sale_amount: number;
 }
 
 function mergeItems(items: SalesItem[]): SalesItem[] {
-  const merged = new Map<number, SalesItem>();
+  const key = (item: SalesItem) => `${item.channel}_${item.vendor_item_id}`;
+  const merged = new Map<string, SalesItem>();
   for (const item of items) {
-    const existing = merged.get(item.vendor_item_id);
+    const k = key(item);
+    const existing = merged.get(k);
     if (existing) {
       existing.quantity += item.quantity;
       existing.sale_amount += item.sale_amount;
     } else {
-      merged.set(item.vendor_item_id, { ...item });
+      merged.set(k, { ...item });
     }
   }
   return Array.from(merged.values()).sort((a, b) => b.sale_amount - a.sale_amount);
@@ -37,22 +40,12 @@ export default function useDailySalesDetail(storeId: number | null) {
     setLabel(null);
     setLoading(true);
     try {
-      if (channel === 'all') {
-        const res = await fetch(
-          `/api/sales/daily?date=${date}&storeId=${storeId}&channel=all`
-        );
-        const json = await res.json();
-        if (res.ok) {
-          setItems(mergeItems(json.data || []));
-        }
-      } else {
-        const res = await fetch(
-          `/api/sales/daily?date=${date}&storeId=${storeId}&channel=${channel}`
-        );
-        const json = await res.json();
-        if (res.ok) {
-          setItems(json.data);
-        }
+      const res = await fetch(
+        `/api/sales/daily?date=${date}&storeId=${storeId}&channel=${channel}`
+      );
+      const json = await res.json();
+      if (res.ok) {
+        setItems(channel === 'all' ? mergeItems(json.data || []) : json.data);
       }
     } finally {
       setLoading(false);
