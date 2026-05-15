@@ -58,6 +58,8 @@ create table if not exists product_sales (
   shipping_fee numeric not null default 0,
   barcode_fee numeric not null default 150,
   box_fee numeric not null default 100,
+  other_fee numeric not null default 0,
+  memo text not null default '',
   profit numeric not null default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),

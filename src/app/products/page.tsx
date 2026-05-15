@@ -37,8 +37,10 @@ type ProductSale = {
   shipping_fee: number;
   barcode_fee: number;
   box_fee: number;
+  other_fee: number;
   profit: number;
   margin_rate: number;
+  memo: string;
 };
 
 type Column = {
@@ -64,6 +66,7 @@ const columns: Column[] = [
   { label: "배송비", key: "shipping_fee", numeric: true, editable: true, suffix: "원" },
   { label: "바코드 작업비", key: "barcode_fee", numeric: true, suffix: "원" },
   { label: "박스비", key: "box_fee", numeric: true, suffix: "원" },
+  { label: "기타비용", key: "other_fee", numeric: true, editable: true, suffix: "원" },
 ];
 
 function fmt(v: number) {
@@ -75,7 +78,7 @@ function calcSupplyPrice(sellingPrice: number): number {
 }
 
 function calcProfit(sale: ProductSale): number {
-  return sale.supply_price - sale.market_commission - sale.unit_cost - sale.warehouse_fee - sale.shipping_fee - sale.barcode_fee - sale.box_fee;
+  return sale.supply_price - sale.market_commission - sale.unit_cost - sale.warehouse_fee - sale.shipping_fee - sale.barcode_fee - sale.box_fee - sale.other_fee;
 }
 
 export default function ProductsPage() {
@@ -93,6 +96,7 @@ export default function ProductsPage() {
   const [coupangNames, setCoupangNames] = useState<string[]>([]);
   const [mappings, setMappings] = useState<Record<string, { name: string; multiplier: number }[]>>({});
   const [selectedMappings, setSelectedMappings] = useState<{ name: string; multiplier: number }[]>([]);
+  const [memoValues, setMemoValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!currentStore) return;
@@ -137,7 +141,9 @@ export default function ProductsPage() {
         shipping_fee: number;
         barcode_fee: number;
         box_fee: number;
+        other_fee: number;
         profit: number;
+        memo: string;
       }> = {};
       salesData?.forEach((s: {
         name: string;
@@ -149,7 +155,9 @@ export default function ProductsPage() {
         shipping_fee: number;
         barcode_fee: number;
         box_fee: number;
+        other_fee: number;
         profit: number;
+        memo: string;
       }) => {
         savedSales[s.name] = s;
       });
@@ -169,8 +177,10 @@ export default function ProductsPage() {
             shipping_fee: saved.shipping_fee,
             barcode_fee: saved.barcode_fee ?? 150,
             box_fee: saved.box_fee ?? 100,
+            other_fee: saved.other_fee ?? 0,
             profit: 0,
             margin_rate: 0,
+            memo: saved.memo ?? "",
           };
           sale.profit = calcProfit(sale);
           sale.margin_rate = sale.selling_price > 0 ? Math.round((sale.profit / sale.selling_price) * 1000) / 10 : 0;
@@ -188,16 +198,32 @@ export default function ProductsPage() {
           shipping_fee: 0,
           barcode_fee: 150,
           box_fee: 100,
+          other_fee: 0,
           profit: 0,
           margin_rate: 0,
+          memo: "",
         };
       });
 
       setSales(list);
+      setMemoValues(Object.fromEntries(list.map((s) => [s.name, s.memo])));
       setLoading(false);
     };
     fetchData();
   }, [currentStore]);
+
+  const handleMemoSave = async (productName: string) => {
+    if (!currentStore) return;
+    const memo = memoValues[productName] ?? "";
+    setSales((prev) => prev.map((s) => s.name === productName ? { ...s, memo } : s));
+    const supabase = createClient();
+    await supabase.from("product_sales").upsert({
+      name: productName,
+      store_id: currentStore.id,
+      memo,
+      updated_at: new Date().toISOString(),
+    });
+  };
 
   const handleEditOpen = (productName: string, field: keyof ProductSale, label: string) => {
     const sale = sales.find((s) => s.name === productName);
@@ -258,6 +284,8 @@ export default function ProductsPage() {
       shipping_fee: updated.shipping_fee,
       barcode_fee: updated.barcode_fee,
       box_fee: updated.box_fee,
+      other_fee: updated.other_fee,
+      memo: updated.memo,
       profit: updated.profit,
       updated_at: new Date().toISOString(),
     });
@@ -307,6 +335,32 @@ export default function ProductsPage() {
     setMappingDialog(null);
   };
 
+  const handleResyncAll = async () => {
+    if (!currentStore) return;
+    const supabase = createClient();
+    for (const sale of sales) {
+      const supply_price = calcSupplyPrice(sale.selling_price);
+      const profit = supply_price - sale.market_commission - sale.unit_cost - sale.warehouse_fee - sale.shipping_fee - sale.barcode_fee - sale.box_fee - sale.other_fee;
+      await supabase.from("product_sales").upsert({
+        name: sale.name,
+        store_id: currentStore.id,
+        category: sale.category,
+        selling_price: sale.selling_price,
+        market_commission: sale.market_commission,
+        unit_cost: sale.unit_cost,
+        warehouse_fee: sale.warehouse_fee,
+        shipping_fee: sale.shipping_fee,
+        barcode_fee: sale.barcode_fee,
+        box_fee: sale.box_fee,
+        other_fee: sale.other_fee,
+        memo: sale.memo,
+        profit,
+        updated_at: new Date().toISOString(),
+      });
+    }
+    alert(`${sales.length}개 상품 이익금 일괄 재저장 완료`);
+  };
+
   if (storeLoading || loading) {
     return (
       <Container maxWidth="lg">
@@ -332,6 +386,11 @@ export default function ProductsPage() {
 
   return (
     <Box sx={{ px: 3, py: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+        <Button size="small" variant="outlined" onClick={handleResyncAll}>
+          이익금 일괄 재저장
+        </Button>
+      </Box>
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
           <TableHead>
@@ -353,6 +412,9 @@ export default function ProductsPage() {
                   {col.label}
                 </TableCell>
               ))}
+              <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem", whiteSpace: "nowrap", backgroundColor: "grey.100" }}>
+                메모
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -398,6 +460,27 @@ export default function ProductsPage() {
                     </TableCell>
                   );
                 })}
+                <TableCell sx={{ whiteSpace: "nowrap" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <TextField
+                      size="small"
+                      value={memoValues[sale.name] ?? ""}
+                      onChange={(e) => setMemoValues((prev) => ({ ...prev, [sale.name]: e.target.value }))}
+                      placeholder="메모"
+                      sx={{ width: 150 }}
+                      inputProps={{ style: { fontSize: "0.8rem", padding: "4px 8px" } }}
+                    />
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleMemoSave(sale.name)}
+                      disabled={memoValues[sale.name] === sale.memo}
+                      sx={{ minWidth: 40, fontSize: "0.75rem", py: 0.25 }}
+                    >
+                      저장
+                    </Button>
+                  </Box>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

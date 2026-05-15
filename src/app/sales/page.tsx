@@ -41,7 +41,7 @@ export default function SalesPage() {
     currentStore?.id ?? null, year, month, profitMap
   );
 
-  const { items, loading: detailLoading, selectedDate, selectedChannel, fetchDetail, clear: clearDetail } = useDailySalesDetail(
+  const { items, loading: detailLoading, selectedDate, selectedChannel, label: detailLabel, fetchDetail, fetchMonthly, clear: clearDetail } = useDailySalesDetail(
     currentStore?.id ?? null
   );
 
@@ -137,7 +137,8 @@ export default function SalesPage() {
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2 }}>
           <Paper
             variant="outlined"
-            sx={{ p: 1, textAlign: 'center', backgroundColor: '#f5f5f5', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+            onClick={() => fetchMonthly(year, month, 'all', `${month}월 전체`)}
+            sx={{ p: 1, textAlign: 'center', backgroundColor: '#f5f5f5', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center', cursor: 'pointer', '&:hover': { borderColor: '#bdbdbd' } }}
           >
             <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
               {month}월 매출총합
@@ -149,7 +150,8 @@ export default function SalesPage() {
           </Paper>
           <Paper
             variant="outlined"
-            sx={{ p: 1, textAlign: 'center', backgroundColor: '#fafafa', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+            onClick={() => fetchMonthly(year, month, 'marketplace', `${month}월 판매자배송`)}
+            sx={{ p: 1, textAlign: 'center', backgroundColor: '#fafafa', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center', cursor: 'pointer', '&:hover': { borderColor: '#bdbdbd' } }}
           >
             <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
               판매자배송
@@ -161,7 +163,8 @@ export default function SalesPage() {
           </Paper>
           <Paper
             variant="outlined"
-            sx={{ p: 1, textAlign: 'center', backgroundColor: '#fafafa', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+            onClick={() => fetchMonthly(year, month, 'rocket_growth', `${month}월 로켓그로스`)}
+            sx={{ p: 1, textAlign: 'center', backgroundColor: '#fafafa', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center', cursor: 'pointer', '&:hover': { borderColor: '#bdbdbd' } }}
           >
             <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
               로켓그로스
@@ -259,10 +262,10 @@ export default function SalesPage() {
 
           {/* 우측: 주문 상품 상세 리스트 */}
           <Box sx={{ flex: 2, minWidth: 0 }}>
-            {selectedDate && selectedChannel ? (
+            {(selectedDate || detailLabel) && selectedChannel ? (
               <>
                 <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600 }}>
-                  {month}월 {selectedDay}일 {channelLabel}
+                  {detailLabel ?? `${month}월 ${selectedDay}일 ${channelLabel}`}
                 </Typography>
                 {detailLoading ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
