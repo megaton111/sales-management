@@ -21,12 +21,32 @@ export default function useDailySalesDetail(storeId: number | null) {
     setSelectedChannel(channel);
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/sales/daily?date=${date}&storeId=${storeId}&channel=${channel}`
-      );
-      const json = await res.json();
-      if (res.ok) {
-        setItems(json.data);
+      if (channel === 'all') {
+        const [mpRes, rgRes] = await Promise.all([
+          fetch(`/api/sales/daily?date=${date}&storeId=${storeId}&channel=marketplace`),
+          fetch(`/api/sales/daily?date=${date}&storeId=${storeId}&channel=rocket_growth`),
+        ]);
+        const [mpJson, rgJson] = await Promise.all([mpRes.json(), rgRes.json()]);
+        const allItems: SalesItem[] = [...(mpJson.data || []), ...(rgJson.data || [])];
+        const merged = new Map<number, SalesItem>();
+        for (const item of allItems) {
+          const existing = merged.get(item.vendor_item_id);
+          if (existing) {
+            existing.quantity += item.quantity;
+            existing.sale_amount += item.sale_amount;
+          } else {
+            merged.set(item.vendor_item_id, { ...item });
+          }
+        }
+        setItems(Array.from(merged.values()).sort((a, b) => b.sale_amount - a.sale_amount));
+      } else {
+        const res = await fetch(
+          `/api/sales/daily?date=${date}&storeId=${storeId}&channel=${channel}`
+        );
+        const json = await res.json();
+        if (res.ok) {
+          setItems(json.data);
+        }
       }
     } finally {
       setLoading(false);

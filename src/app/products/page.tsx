@@ -19,7 +19,9 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
 import EditIcon from "@mui/icons-material/Edit";
+import LinkIcon from "@mui/icons-material/Link";
 import { createClient } from "@/lib/supabase-browser";
 import { useStore } from "@/contexts/StoreContext";
 
@@ -87,6 +89,10 @@ export default function ProductsPage() {
     value: string;
     productName: string;
   } | null>(null);
+  const [mappingDialog, setMappingDialog] = useState<{ open: boolean; productName: string } | null>(null);
+  const [coupangNames, setCoupangNames] = useState<string[]>([]);
+  const [mappings, setMappings] = useState<Record<string, { name: string; multiplier: number }[]>>({});
+  const [selectedMappings, setSelectedMappings] = useState<{ name: string; multiplier: number }[]>([]);
 
   useEffect(() => {
     if (!currentStore) return;
@@ -94,11 +100,23 @@ export default function ProductsPage() {
       setLoading(true);
       const supabase = createClient();
       const storeId = currentStore.id;
-      const [{ data: avgData }, { data: productsData }, { data: salesData }] = await Promise.all([
+      const [{ data: avgData }, { data: productsData }, { data: salesData }, mappingRes, coupangNamesRes] = await Promise.all([
         supabase.from("product_averages").select("*").eq("store_id", storeId),
         supabase.from("products").select("id, name").eq("store_id", storeId).order("created_at", { ascending: true }),
         supabase.from("product_sales").select("*").eq("store_id", storeId),
+        fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
+        supabase.from("daily_sales_items").select("product_name").eq("store_id", storeId),
       ]);
+
+      const uniqueCoupangNames = [...new Set(((coupangNamesRes as { data: { product_name: string }[] }).data || []).map((r: { product_name: string }) => r.product_name))];
+      setCoupangNames(uniqueCoupangNames);
+
+      const mappingMap: Record<string, { name: string; multiplier: number }[]> = {};
+      ((mappingRes as { data: { coupang_product_name: string; product_sale_name: string; multiplier: number }[] }).data || []).forEach((m) => {
+        if (!mappingMap[m.product_sale_name]) mappingMap[m.product_sale_name] = [];
+        mappingMap[m.product_sale_name].push({ name: m.coupang_product_name, multiplier: m.multiplier ?? 1 });
+      });
+      setMappings(mappingMap);
 
       const productIdMap: Record<string, string> = {};
       productsData?.forEach((p: { id: string; name: string }) => {
@@ -225,6 +243,7 @@ export default function ProductsPage() {
     } else {
       (updated[field] as number) = parseFloat(value) || 0;
     }
+    updated.supply_price = calcSupplyPrice(updated.selling_price);
     updated.profit = calcProfit(updated);
 
     const supabase = createClient();
@@ -242,6 +261,50 @@ export default function ProductsPage() {
       profit: updated.profit,
       updated_at: new Date().toISOString(),
     });
+  };
+
+  const handleMappingOpen = (productName: string) => {
+    setSelectedMappings(mappings[productName] || []);
+    setMappingDialog({ open: true, productName });
+  };
+
+  const handleAddMapping = (coupangName: string) => {
+    if (selectedMappings.some((m) => m.name === coupangName)) return;
+    setSelectedMappings((prev) => [...prev, { name: coupangName, multiplier: 1 }]);
+  };
+
+  const handleRemoveMapping = (coupangName: string) => {
+    setSelectedMappings((prev) => prev.filter((m) => m.name !== coupangName));
+  };
+
+  const handleMultiplierChange = (coupangName: string, multiplier: number) => {
+    setSelectedMappings((prev) =>
+      prev.map((m) => (m.name === coupangName ? { ...m, multiplier } : m))
+    );
+  };
+
+  const handleMappingSave = async () => {
+    if (!mappingDialog || !currentStore) return;
+    const { productName } = mappingDialog;
+    const storeId = currentStore.id;
+
+    const res = await fetch(`/api/product-mapping`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storeId,
+        productSaleName: productName,
+        mappingItems: selectedMappings.map((m) => ({
+          coupangProductName: m.name,
+          multiplier: m.multiplier,
+        })),
+      }),
+    });
+
+    if (!res.ok) return;
+
+    setMappings((prev) => ({ ...prev, [productName]: selectedMappings }));
+    setMappingDialog(null);
   };
 
   if (storeLoading || loading) {
@@ -273,6 +336,9 @@ export default function ProductsPage() {
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem", whiteSpace: "nowrap", backgroundColor: "grey.100", width: 40 }}>
+                매핑
+              </TableCell>
               {columns.map((col) => (
                 <TableCell
                   key={col.key}
@@ -292,6 +358,11 @@ export default function ProductsPage() {
           <TableBody>
             {sales.map((sale) => (
               <TableRow key={sale.name} hover>
+                <TableCell sx={{ textAlign: "center" }}>
+                  <IconButton size="small" onClick={() => handleMappingOpen(sale.name)} sx={{ p: 0.25 }}>
+                    <LinkIcon sx={{ fontSize: 16, color: mappings[sale.name]?.length ? "primary.main" : "text.disabled" }} />
+                  </IconButton>
+                </TableCell>
                 {columns.map((col) => {
                   const raw = sale[col.key];
                   let display: string;
@@ -360,6 +431,65 @@ export default function ProductsPage() {
           <Button onClick={handleEditSave} variant="contained" size="small">
             저장
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={mappingDialog?.open ?? false}
+        onClose={() => setMappingDialog(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: "1rem" }}>
+          쿠팡 상품명 매핑 — {mappingDialog?.productName}
+        </DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            options={coupangNames.filter((n) => !selectedMappings.some((m) => m.name === n))}
+            onChange={(_, value) => { if (value) handleAddMapping(value); }}
+            value={null}
+            renderInput={(params) => (
+              <TextField {...params} size="small" placeholder="쿠팡 상품명 검색하여 추가" />
+            )}
+            sx={{ mt: 1, mb: 2 }}
+          />
+          {selectedMappings.length > 0 && (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem" }}>쿠팡 상품명</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem", width: 80 }}>배수</TableCell>
+                  <TableCell sx={{ width: 40 }} />
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {selectedMappings.map((m) => (
+                  <TableRow key={m.name}>
+                    <TableCell sx={{ fontSize: "0.8rem" }}>{m.name}</TableCell>
+                    <TableCell>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={m.multiplier}
+                        onChange={(e) => handleMultiplierChange(m.name, parseInt(e.target.value) || 1)}
+                        inputProps={{ min: 1, style: { textAlign: "center", padding: "4px" } }}
+                        sx={{ width: 60 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton size="small" onClick={() => handleRemoveMapping(m.name)} sx={{ p: 0.25 }}>
+                        <Typography sx={{ fontSize: "0.8rem", color: "error.main" }}>✕</Typography>
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMappingDialog(null)} size="small">취소</Button>
+          <Button onClick={handleMappingSave} variant="contained" size="small">저장</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -64,6 +64,17 @@ create table if not exists product_sales (
   primary key (name, store_id)
 );
 
+-- 쿠팡 상품명 ↔ 상품관리 상품명 매핑
+create table if not exists product_name_mapping (
+  id serial primary key,
+  store_id integer not null references stores(id),
+  coupang_product_name text not null,
+  product_sale_name text not null,
+  multiplier integer not null default 1,
+  created_at timestamptz default now(),
+  unique (store_id, coupang_product_name)
+);
+
 -- 일별 매출 요약 (채널별)
 create table if not exists daily_sales (
   id serial primary key,
