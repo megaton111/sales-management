@@ -132,15 +132,17 @@ export default function SalesPage() {
               </Button>
             ))}
           </ButtonGroup>
-          <Button
-            variant="text"
-            size="small"
-            onClick={handleBatchSync}
-            disabled={batchLoading || !currentStore}
-            sx={{ ml: 'auto', color: 'text.secondary' }}
-          >
-            {batchLoading ? <CircularProgress size={16} /> : '동기화'}
-          </Button>
+          {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+            <Button
+              variant="text"
+              size="small"
+              onClick={handleBatchSync}
+              disabled={batchLoading || !currentStore}
+              sx={{ ml: 'auto', color: 'text.secondary' }}
+            >
+              {batchLoading ? <CircularProgress size={16} /> : '동기화'}
+            </Button>
+          )}
         </Box>
 
         {/* 월 매출 총합 */}
