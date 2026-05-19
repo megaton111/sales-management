@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
+import Box from "@mui/material/Box";
 import theme from "@/lib/theme";
 import GNB from "@/components/GNB";
 import StoreProvider from "@/contexts/StoreContext";
@@ -32,7 +33,9 @@ export default function RootLayout({
             <CssBaseline />
             <StoreProvider>
               <GNB />
-              {children}
+              <Box sx={{ backgroundColor: "#f4f6f8", minHeight: "calc(100vh - 48px)" }}>
+                {children}
+              </Box>
             </StoreProvider>
           </ThemeProvider>
         </AppRouterCacheProvider>

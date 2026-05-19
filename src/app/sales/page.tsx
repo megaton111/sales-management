@@ -22,7 +22,30 @@ import { useStore } from '@/contexts/StoreContext';
 import useMonthlySales from '@/hooks/useMonthlySales';
 import useDailySalesDetail from '@/hooks/useDailySalesDetail';
 import useProductProfits from '@/hooks/useProductProfits';
-import { Stack } from '@mui/material';
+
+const cardSx = {
+  p: 2,
+  backgroundColor: '#fff',
+  borderRadius: 3,
+  boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)',
+  border: '1px solid rgba(0,0,0,0.04)',
+  cursor: 'pointer',
+  '&:hover': { boxShadow: '0 2px 6px rgba(0,0,0,0.06)' },
+};
+
+const thSx = {
+  fontWeight: 600,
+  fontSize: '0.75rem',
+  color: '#adb5bd',
+  borderBottom: '1px solid #f1f3f5',
+  py: 1.2,
+};
+
+const tdSx = {
+  fontSize: '0.85rem',
+  color: '#1a1a1b',
+  borderBottom: '1px solid #f1f3f5',
+};
 
 function formatNumber(n: number) {
   return n.toLocaleString('ko-KR');
@@ -62,6 +85,14 @@ export default function SalesPage() {
   useEffect(() => {
     setIsLocal(window.location.hostname === 'localhost');
   }, []);
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayDay = yesterday.getMonth() + 1 === month && yesterday.getFullYear() === year ? yesterday.getDate() : null;
+  const yesterdaySales = yesterdayDay ? dailySalesMap.get(yesterdayDay) : null;
+  const ydMp = yesterdaySales?.marketplace ?? 0;
+  const ydRg = yesterdaySales?.rocketGrowth ?? 0;
+  const ydProfit = (yesterdaySales?.marketplaceProfit ?? 0) + (yesterdaySales?.rocketGrowthProfit ?? 0);
 
   const lastDate = new Date(year, month, 0).getDate();
   const days = Array.from({ length: lastDate }, (_, i) => i + 1);
@@ -130,15 +161,15 @@ export default function SalesPage() {
     : items.filter(i => i.channel === 'rocket_growth');
 
   const renderItemTable = (tableItems: typeof items) => (
-    <TableContainer component={Paper} variant="outlined">
+    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', backgroundColor: 'grey.100' }}>상품명</TableCell>
-            <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', backgroundColor: 'grey.100' }}>옵션명</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', backgroundColor: 'grey.100' }}>판매건수</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', backgroundColor: '#e3f2fd' }}>매출금액</TableCell>
-            <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', backgroundColor: '#e8f5e9' }}>순이익</TableCell>
+            <TableCell sx={thSx}>상품명</TableCell>
+            <TableCell sx={thSx}>옵션명</TableCell>
+            <TableCell align="right" sx={thSx}>판매건수</TableCell>
+            <TableCell align="right" sx={thSx}>매출금액</TableCell>
+            <TableCell align="right" sx={thSx}>순이익</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -146,12 +177,12 @@ export default function SalesPage() {
             const unitProfit = profitMap.get(item.product_name) ?? 0;
             const itemProfit = unitProfit * item.quantity;
             return (
-              <TableRow key={`${item.channel}_${item.vendor_item_id}`} hover>
-                <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{item.product_name}</TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{item.vendor_item_name?.includes(',') ? item.vendor_item_name.split(',').slice(1).join(',').trim() : ''}</TableCell>
-                <TableCell align="right" sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{formatNumber(item.quantity)}건</TableCell>
-                <TableCell align="right" sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap', fontWeight: 700, backgroundColor: '#e3f2fd' }}>{formatNumber(item.sale_amount)}원</TableCell>
-                <TableCell align="right" sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap', fontWeight: 700, backgroundColor: '#e8f5e9', color: itemProfit > 0 ? '#2e7d32' : 'text.secondary' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>
+              <TableRow key={`${item.channel}_${item.vendor_item_id}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                <TableCell sx={tdSx}>{item.product_name}</TableCell>
+                <TableCell sx={tdSx}>{item.vendor_item_name?.includes(',') ? item.vendor_item_name.split(',').slice(1).join(',').trim() : ''}</TableCell>
+                <TableCell align="right" sx={tdSx}>{formatNumber(item.quantity)}건</TableCell>
+                <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.sale_amount)}원</TableCell>
+                <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: itemProfit > 0 ? '#2b8a3e' : '#adb5bd' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>
               </TableRow>
             );
           })}
@@ -161,14 +192,14 @@ export default function SalesPage() {
   );
 
   return (
-    <Container maxWidth="lg">
-      <Stack direction="column" spacing={3}>
-        {/* 최상단: 연도 + 월 선택 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, pt: 3, flexWrap: 'wrap' }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        {/* 헤더 + 월 선택 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1a1a1b' }}>
             {year}년
           </Typography>
-          <ButtonGroup size="small">
+          <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, '&.MuiButton-contained': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' } } }}>
             {monthButtons.map((m) => (
               <Button
                 key={m}
@@ -186,7 +217,7 @@ export default function SalesPage() {
               size="small"
               onClick={handleBatchSync}
               disabled={batchLoading || !currentStore}
-              sx={{ ml: 'auto', color: 'text.secondary' }}
+              sx={{ ml: 'auto', color: '#868e96', fontSize: '0.8rem' }}
             >
               {batchLoading ? <CircularProgress size={16} /> : '매출 동기화'}
             </Button>
@@ -194,69 +225,66 @@ export default function SalesPage() {
         </Box>
 
         {/* 월 매출 총합 */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2 }}>
-          <Paper
-            variant="outlined"
-            onClick={() => fetchMonthly(year, month, 'all', `${month}월 전체`)}
-            sx={{ p: 1, textAlign: 'center', backgroundColor: '#f5f5f5', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center', cursor: 'pointer', '&:hover': { borderColor: '#bdbdbd' } }}
-          >
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-              {month}월 매출총합
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 800, color: '#212121' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5 }}>
+          <Paper elevation={0} onClick={() => fetchMonthly(year, month, 'all', `${month}월 전체`)} sx={cardSx}>
+            <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>{month}월 매출총합</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
               {loading ? '-' : formatNumber(totalMarketplace + totalRocketGrowth)}
-              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 500, ml: 0.3 }}>원</Typography>
+              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
             </Typography>
           </Paper>
-          <Paper
-            variant="outlined"
-            onClick={() => fetchMonthly(year, month, 'marketplace', `${month}월 판매자배송`)}
-            sx={{ p: 1, textAlign: 'center', backgroundColor: '#fafafa', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center', cursor: 'pointer', '&:hover': { borderColor: '#bdbdbd' } }}
-          >
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-              판매자배송 매출
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 800, color: '#1565c0' }}>
+          <Paper elevation={0} onClick={() => fetchMonthly(year, month, 'marketplace', `${month}월 판매자배송`)} sx={cardSx}>
+            <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>판매자배송</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
               {loading ? '-' : formatNumber(totalMarketplace)}
-              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 500, ml: 0.3 }}>원</Typography>
+              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
             </Typography>
           </Paper>
-          <Paper
-            variant="outlined"
-            onClick={() => fetchMonthly(year, month, 'rocket_growth', `${month}월 로켓그로스`)}
-            sx={{ p: 1, textAlign: 'center', backgroundColor: '#fafafa', borderRadius: 1, borderColor: '#e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center', cursor: 'pointer', '&:hover': { borderColor: '#bdbdbd' } }}
-          >
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-              로켓그로스 매출
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 800, color: '#e65100' }}>
+          <Paper elevation={0} onClick={() => fetchMonthly(year, month, 'rocket_growth', `${month}월 로켓그로스`)} sx={cardSx}>
+            <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>로켓그로스</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
               {loading ? '-' : formatNumber(totalRocketGrowth)}
-              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 500, ml: 0.3 }}>원</Typography>
+              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
             </Typography>
           </Paper>
-          <Paper
-            variant="outlined"
-            sx={{ p: 1, textAlign: 'center', backgroundColor: '#e8f5e9', borderRadius: 1, borderColor: '#c8e6c9', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
-          >
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-              {month}월 총 순이익
-            </Typography>
-            <Typography variant="body1" sx={{ fontWeight: 800, color: '#2e7d32' }}>
+          <Paper elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {} }}>
+            <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>{month}월 순이익</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
               {loading ? '-' : formatNumber(totalProfit)}
-              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 500, ml: 0.3 }}>원</Typography>
+              <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
             </Typography>
           </Paper>
         </Box>
 
+        {/* 전날 매출 */}
+        {yesterdayDay && !loading && (
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5 }}>
+            {[
+              { label: '어제 매출', value: ydMp + ydRg, color: '#1a1a1b' },
+              { label: '어제 판매자배송', value: ydMp, color: '#1a1a1b' },
+              { label: '어제 로켓그로스', value: ydRg, color: '#1a1a1b' },
+              { label: '어제 순이익', value: ydProfit, color: ydProfit >= 0 ? '#2b8a3e' : '#e03131' },
+            ].map((item) => (
+              <Paper key={item.label} elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, py: 1.5 }}>
+                <Typography sx={{ color: '#adb5bd', fontSize: '0.7rem', mb: 0.3 }}>{item.label}</Typography>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.95rem', color: item.color, letterSpacing: '-0.02em' }}>
+                  {item.value !== 0 ? formatNumber(item.value) : '-'}
+                  {item.value !== 0 && <Typography component="span" sx={{ fontSize: '0.7rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>}
+                </Typography>
+              </Paper>
+            ))}
+          </Box>
+        )}
+
         {/* 일별 리스트 + 상세 */}
         <Box sx={{ display: 'flex', gap: 2 }}>
           {/* 좌측: 일별 매출 리스트 */}
-          <TableContainer component={Paper} variant="outlined" sx={{ flex: 1, flexShrink: 0, maxHeight: 'calc(100vh - 220px)', overflow: 'auto' }}>
+          <TableContainer component={Paper} elevation={0} sx={{ flex: 1, flexShrink: 0, maxHeight: 'calc(100vh - 280px)', overflow: 'auto', border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', backgroundColor: 'grey.100', width: 80 }}>일자</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', backgroundColor: 'grey.100' }}>매출</TableCell>
+                  <TableCell sx={{ ...thSx, backgroundColor: '#fff', width: 80 }}>일자</TableCell>
+                  <TableCell sx={{ ...thSx, backgroundColor: '#fff' }}>매출</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -273,45 +301,37 @@ export default function SalesPage() {
                       key={day}
                       selected={isSelectedDay}
                       onClick={() => handleChannelClick(day, 'all')}
-                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                      sx={{ cursor: 'pointer', '&:hover': { backgroundColor: '#f8f9fa' }, '&.Mui-selected': { backgroundColor: '#f1f3f5' } }}
                     >
-                      <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, verticalAlign: 'top', py: 1.2 }}>
+                      <TableCell sx={{ fontSize: '0.8rem', fontWeight: 600, verticalAlign: 'top', py: 1.2, color: '#495057', borderBottom: '1px solid #f1f3f5' }}>
                         {day}일
                       </TableCell>
-                      <TableCell sx={{ py: 1 }}>
+                      <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f3f5' }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                           <Box sx={{ display: 'flex' }}>
-                            <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#1565c0', fontWeight: 400 }}>
-                              판매자매출
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#1565c0', fontWeight: 400 }}>
+                            <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#868e96' }}>판매자매출</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#495057' }}>
                               {formatNumber(mpAmount)}원
-                              {mpProfit !== 0 && <Typography component="span" sx={{ fontSize: '0.7rem', color: '#2e7d32', ml: 0.5 }}>({formatNumber(mpProfit)}원)</Typography>}
+                              {mpProfit !== 0 && <Typography component="span" sx={{ fontSize: '0.7rem', color: '#2b8a3e', ml: 0.5 }}>({formatNumber(mpProfit)}원)</Typography>}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex' }}>
-                            <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#e65100', fontWeight: 400 }}>
-                              로켓매출
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#e65100', fontWeight: 400 }}>
+                            <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#868e96' }}>로켓매출</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#495057' }}>
                               {formatNumber(rgAmount)}원
-                              {rgProfit !== 0 && <Typography component="span" sx={{ fontSize: '0.7rem', color: '#2e7d32', ml: 0.5 }}>({formatNumber(rgProfit)}원)</Typography>}
+                              {rgProfit !== 0 && <Typography component="span" sx={{ fontSize: '0.7rem', color: '#2b8a3e', ml: 0.5 }}>({formatNumber(rgProfit)}원)</Typography>}
                             </Typography>
                           </Box>
                           <Box sx={{ display: 'flex' }}>
-                            <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#616161', fontWeight: 600 }}>
-                              매출총합
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#616161', fontWeight: 600 }}>
+                            <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#495057', fontWeight: 600 }}>매출총합</Typography>
+                            <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#1a1a1b', fontWeight: 600 }}>
                               {formatNumber(mpAmount + rgAmount)}원
                             </Typography>
                           </Box>
                           {(mpProfit + rgProfit) !== 0 && (
                             <Box sx={{ display: 'flex' }}>
-                              <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#2e7d32', fontWeight: 600 }}>
-                                순이익
-                              </Typography>
-                              <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#2e7d32', fontWeight: 600 }}>
+                              <Typography sx={{ fontSize: '0.75rem', width: 70, flexShrink: 0, color: '#2b8a3e', fontWeight: 600 }}>순이익</Typography>
+                              <Typography sx={{ fontSize: '0.75rem', textAlign: 'right', flex: 1, color: '#2b8a3e', fontWeight: 600 }}>
                                 {formatNumber(mpProfit + rgProfit)}원
                               </Typography>
                             </Box>
@@ -326,22 +346,20 @@ export default function SalesPage() {
           </TableContainer>
 
           {/* 우측: 주문 상품 상세 리스트 */}
-          <Box sx={{ flex: 2, minWidth: 0, maxHeight: 'calc(100vh - 220px)', overflow: 'auto' }}>
+          <Box sx={{ flex: 2, minWidth: 0, maxHeight: 'calc(100vh - 280px)', overflow: 'auto' }}>
             {(selectedDate || detailLabel) && selectedChannel ? (
               <>
                 {detailLoading ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                    <CircularProgress size={20} />
+                    <CircularProgress size={20} sx={{ color: '#868e96' }} />
                   </Box>
                 ) : items.length === 0 ? (
-                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                    매출 데이터 없음
-                  </Typography>
+                  <Typography sx={{ color: '#adb5bd', fontSize: '0.85rem' }}>매출 데이터 없음</Typography>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {mpItems.length > 0 && (
                       <Box>
-                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600, color: '#1565c0' }}>
+                        <Typography sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.85rem', color: '#495057' }}>
                           {detailLabel ? `${detailLabel} 판매자배송` : `${month}월 ${selectedDay}일 판매자배송`}
                         </Typography>
                         {renderItemTable(mpItems)}
@@ -349,7 +367,7 @@ export default function SalesPage() {
                     )}
                     {rgItems.length > 0 && (
                       <Box>
-                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 600, color: '#e65100' }}>
+                        <Typography sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.85rem', color: '#495057' }}>
                           {detailLabel ? `${detailLabel} 로켓그로스` : `${month}월 ${selectedDay}일 로켓그로스`}
                         </Typography>
                         {renderItemTable(rgItems)}
@@ -360,36 +378,25 @@ export default function SalesPage() {
               </>
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                <Typography sx={{ color: '#adb5bd', fontSize: '0.85rem' }}>
                   일자별 매출을 클릭하면 상세 내역이 표시됩니다
                 </Typography>
               </Box>
             )}
           </Box>
         </Box>
-      </Stack>
+      </Box>
 
       <Backdrop open={batchLoading} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
         <Box sx={{ width: 320, textAlign: 'center' }}>
-          <Typography sx={{ color: '#fff', mb: 2, fontWeight: 500 }}>
-            매출을 불러오는 중입니다.
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontSize: '0.85rem' }}>
-            잠시만 기다려주세요
-          </Typography>
+          <Typography sx={{ color: '#fff', mb: 2, fontWeight: 500 }}>매출을 불러오는 중입니다.</Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontSize: '0.85rem' }}>잠시만 기다려주세요</Typography>
           <LinearProgress sx={{ borderRadius: 1, height: 6 }} />
         </Box>
       </Backdrop>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={snackbar.severity} variant="filled">
-          {snackbar.message}
-        </Alert>
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
       </Snackbar>
     </Container>
   );

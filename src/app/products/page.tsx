@@ -387,105 +387,111 @@ export default function ProductsPage() {
   return (
     <Box sx={{ px: 3, py: 3 }}>
       <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-        <Button size="small" variant="outlined" onClick={handleResyncAll}>
+        <Button size="small" variant="outlined" onClick={handleResyncAll} sx={{ borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}>
           이익금 일괄 재저장
         </Button>
       </Box>
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem", whiteSpace: "nowrap", backgroundColor: "grey.100", width: 40 }}>
-                매핑
-              </TableCell>
-              {columns.map((col) => (
-                <TableCell
-                  key={col.key}
-                  align={col.numeric ? "right" : "left"}
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: "0.8rem",
-                    whiteSpace: "nowrap",
-                    backgroundColor: col.highlight ? "#e3f2fd" : "grey.100",
-                  }}
-                >
-                  {col.label}
+      <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#adb5bd", borderBottom: "1px solid #f1f3f5", width: 40 }}>
+                  매핑
                 </TableCell>
-              ))}
-              <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem", whiteSpace: "nowrap", backgroundColor: "grey.100" }}>
-                메모
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sales.map((sale) => (
-              <TableRow key={sale.name} hover>
-                <TableCell sx={{ textAlign: "center" }}>
-                  <IconButton size="small" onClick={() => handleMappingOpen(sale.name)} sx={{ p: 0.25 }}>
-                    <LinkIcon sx={{ fontSize: 16, color: mappings[sale.name]?.length ? "primary.main" : "text.disabled" }} />
-                  </IconButton>
-                </TableCell>
-                {columns.map((col) => {
-                  const raw = sale[col.key];
-                  let display: string;
-                  if (col.numeric) {
-                    display = fmt(raw as number) + (col.suffix || "");
-                  } else {
-                    display = (raw as string) || "-";
-                  }
-
-                  return (
-                    <TableCell
-                      key={col.key}
-                      align={col.numeric ? "right" : "left"}
-                      sx={{
-                        fontSize: "0.85rem",
-                        whiteSpace: "nowrap",
-                        fontWeight: col.highlight ? 700 : 400,
-                        backgroundColor: col.highlight ? "#e3f2fd" : "transparent",
-                      }}
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, justifyContent: col.numeric ? "flex-end" : "flex-start" }}>
-                        {col.editable && (
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditOpen(sale.name, col.key, col.label)}
-                            sx={{ p: 0.25 }}
-                          >
-                            <EditIcon sx={{ fontSize: 14, color: "text.secondary" }} />
-                          </IconButton>
-                        )}
-                        {display}
-                      </Box>
-                    </TableCell>
-                  );
-                })}
-                <TableCell sx={{ whiteSpace: "nowrap" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                    <TextField
-                      size="small"
-                      value={memoValues[sale.name] ?? ""}
-                      onChange={(e) => setMemoValues((prev) => ({ ...prev, [sale.name]: e.target.value }))}
-                      placeholder="메모"
-                      sx={{ width: 150 }}
-                      inputProps={{ style: { fontSize: "0.8rem", padding: "4px 8px" } }}
-                    />
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleMemoSave(sale.name)}
-                      disabled={memoValues[sale.name] === sale.memo}
-                      sx={{ minWidth: 40, fontSize: "0.75rem", py: 0.25 }}
-                    >
-                      저장
-                    </Button>
-                  </Box>
+                {columns.map((col) => (
+                  <TableCell
+                    key={col.key}
+                    align={col.numeric ? "right" : "left"}
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: "0.75rem",
+                      whiteSpace: "nowrap",
+                      color: "#adb5bd",
+                      borderBottom: "1px solid #f1f3f5",
+                      backgroundColor: col.highlight ? "#f8f9fa" : "#fff",
+                    }}
+                  >
+                    {col.label}
+                  </TableCell>
+                ))}
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#adb5bd", borderBottom: "1px solid #f1f3f5" }}>
+                  메모
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {sales.map((sale) => (
+                <TableRow key={sale.name} sx={{ "&:hover": { backgroundColor: "#f8f9fa" } }}>
+                  <TableCell sx={{ textAlign: "center", borderBottom: "1px solid #f1f3f5" }}>
+                    <IconButton size="small" onClick={() => handleMappingOpen(sale.name)} sx={{ p: 0.25 }}>
+                      <LinkIcon sx={{ fontSize: 16, color: mappings[sale.name]?.length ? "#343a40" : "#dee2e6" }} />
+                    </IconButton>
+                  </TableCell>
+                  {columns.map((col) => {
+                    const raw = sale[col.key];
+                    let display: string;
+                    if (col.numeric) {
+                      display = fmt(raw as number) + (col.suffix || "");
+                    } else {
+                      display = (raw as string) || "-";
+                    }
+
+                    return (
+                      <TableCell
+                        key={col.key}
+                        align={col.numeric ? "right" : "left"}
+                        sx={{
+                          fontSize: "0.85rem",
+                          whiteSpace: "nowrap",
+                          color: "#1a1a1b",
+                          fontWeight: col.highlight ? 700 : 400,
+                          borderBottom: "1px solid #f1f3f5",
+                          backgroundColor: col.highlight ? "#f8f9fa" : "transparent",
+                        }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, justifyContent: col.numeric ? "flex-end" : "flex-start" }}>
+                          {col.editable && (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditOpen(sale.name, col.key, col.label)}
+                              sx={{ p: 0.25 }}
+                            >
+                              <EditIcon sx={{ fontSize: 14, color: "#adb5bd" }} />
+                            </IconButton>
+                          )}
+                          {display}
+                        </Box>
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell sx={{ whiteSpace: "nowrap", borderBottom: "1px solid #f1f3f5" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <TextField
+                        size="small"
+                        value={memoValues[sale.name] ?? ""}
+                        onChange={(e) => setMemoValues((prev) => ({ ...prev, [sale.name]: e.target.value }))}
+                        placeholder="메모"
+                        sx={{ width: 150 }}
+                        inputProps={{ style: { fontSize: "0.8rem", padding: "4px 8px" } }}
+                      />
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => handleMemoSave(sale.name)}
+                        disabled={memoValues[sale.name] === sale.memo}
+                        sx={{ minWidth: 40, fontSize: "0.75rem", py: 0.25, borderColor: "#dee2e6", color: "#495057" }}
+                      >
+                        저장
+                      </Button>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       <Dialog
         open={editDialog?.open ?? false}

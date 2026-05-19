@@ -162,7 +162,7 @@ export default function CostPage() {
   return (
     <Box sx={{ px: 3, py: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-start", mb: 2 }}>
-        <Button variant="outlined" size="small" onClick={() => router.push("/cost/register")}>
+        <Button variant="outlined" size="small" onClick={() => router.push("/cost/register")} sx={{ borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}>
           상품 추가
         </Button>
       </Box>
@@ -172,7 +172,7 @@ export default function CostPage() {
         onChange={(_, v) => setSelectedTab(v)}
         variant="scrollable"
         scrollButtons="auto"
-        sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
+        sx={{ borderBottom: "1px solid #f1f3f5", mb: 2, "& .MuiTab-root": { color: "#868e96", fontWeight: 500, "&.Mui-selected": { color: "#1a1a1b", fontWeight: 700 } }, "& .MuiTabs-indicator": { backgroundColor: "#343a40" } }}
       >
         {productNames.map((name) => (
           <Tab key={name} label={name} />
@@ -180,69 +180,75 @@ export default function CostPage() {
       </Tabs>
 
       <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{ color: "#868e96" }}>
           평균 사입비용
         </Typography>
-        <Typography variant="body1" sx={{ fontWeight: 700 }}>
+        <Typography variant="body1" sx={{ fontWeight: 700, color: "#1a1a1b" }}>
           {productNames.length > 0 && averages[productNames[selectedTab]] != null
             ? `${fmt(averages[productNames[selectedTab]])}원`
             : "-"}
         </Typography>
       </Box>
 
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small" sx={{ minWidth: 2000 }}>
-          <TableHead>
-            <TableRow>
-              {columns.map((col) => (
-                <TableCell
-                  key={col.key}
-                  align={col.numeric ? "right" : "left"}
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: "0.8rem",
-                    whiteSpace: "nowrap",
-                    backgroundColor: col.highlight ? "#e3f2fd" : "grey.100",
-                  }}
-                >
-                  {col.label}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredProducts.map((product) => (
-              <TableRow key={product.id} hover>
-                {columns.map((col) => {
-                  const raw = product[col.key as keyof Product];
-                  let display: string;
-                  if (col.format) {
-                    display = col.format(raw as string);
-                  } else if (col.numeric) {
-                    display = fmt(raw as number) + (col.suffix || "");
-                  } else {
-                    display = (raw as string) || "-";
-                  }
-                  return (
-                    <TableCell
-                      key={col.key}
-                      align={col.numeric ? "right" : "left"}
-                      sx={{
-                        fontSize: "0.8rem",
-                        whiteSpace: "nowrap",
-                        fontWeight: col.highlight ? 700 : 400,
-                        backgroundColor: col.highlight ? "#e3f2fd" : "transparent",
-                      }}
-                    >
-                      {display}
-                    </TableCell>
-                  );
-                })}
+      <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
+        <TableContainer>
+          <Table size="small" sx={{ minWidth: 2000 }}>
+            <TableHead>
+              <TableRow>
+                {columns.map((col) => (
+                  <TableCell
+                    key={col.key}
+                    align={col.numeric ? "right" : "left"}
+                    sx={{
+                      fontWeight: 600,
+                      fontSize: "0.75rem",
+                      whiteSpace: "nowrap",
+                      color: "#adb5bd",
+                      borderBottom: "1px solid #f1f3f5",
+                      backgroundColor: col.highlight ? "#f8f9fa" : "#fff",
+                    }}
+                  >
+                    {col.label}
+                  </TableCell>
+                ))}
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow key={product.id} sx={{ "&:hover": { backgroundColor: "#f8f9fa" } }}>
+                  {columns.map((col) => {
+                    const raw = product[col.key as keyof Product];
+                    let display: string;
+                    if (col.format) {
+                      display = col.format(raw as string);
+                    } else if (col.numeric) {
+                      display = fmt(raw as number) + (col.suffix || "");
+                    } else {
+                      display = (raw as string) || "-";
+                    }
+                    return (
+                      <TableCell
+                        key={col.key}
+                        align={col.numeric ? "right" : "left"}
+                        sx={{
+                          fontSize: "0.85rem",
+                          whiteSpace: "nowrap",
+                          color: "#1a1a1b",
+                          fontWeight: col.highlight ? 700 : 400,
+                          borderBottom: "1px solid #f1f3f5",
+                          backgroundColor: col.highlight ? "#f8f9fa" : "transparent",
+                        }}
+                      >
+                        {display}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1.5 }}>
         <Button

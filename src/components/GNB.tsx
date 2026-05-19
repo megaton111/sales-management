@@ -57,7 +57,7 @@ export default function GNB() {
       <AppBar
         position="static"
         elevation={0}
-        sx={{ backgroundColor: "transparent", borderBottom: 1, borderColor: "divider" }}
+        sx={{ backgroundColor: "#fff", borderBottom: "1px solid #f1f3f5" }}
       >
         <Toolbar variant="dense" sx={{ justifyContent: "space-between" }}>
           <Box sx={{ display: "flex", gap: 0.5 }}>
@@ -68,8 +68,10 @@ export default function GNB() {
                 href={menu.href}
                 size="small"
                 sx={{
-                  color: pathname === menu.href ? "primary.main" : "text.secondary",
-                  fontWeight: pathname === menu.href ? 700 : 400,
+                  color: pathname === menu.href ? "#1a1a1b" : "#868e96",
+                  fontWeight: pathname === menu.href ? 700 : 500,
+                  fontSize: "0.85rem",
+                  "&:hover": { backgroundColor: "#f8f9fa" },
                 }}
               >
                 {menu.label}
@@ -80,10 +82,10 @@ export default function GNB() {
           {!loading && currentStore && (
             <Button
               size="small"
-              startIcon={<StorefrontIcon sx={{ fontSize: 18 }} />}
-              endIcon={<ArrowDropDownIcon />}
+              startIcon={<StorefrontIcon sx={{ fontSize: 18, color: "#868e96" }} />}
+              endIcon={<ArrowDropDownIcon sx={{ color: "#adb5bd" }} />}
               onClick={(e) => setAnchorEl(e.currentTarget)}
-              sx={{ color: "text.primary", textTransform: "none", fontWeight: 600 }}
+              sx={{ color: "#1a1a1b", fontWeight: 600, fontSize: "0.85rem", "&:hover": { backgroundColor: "#f8f9fa" } }}
             >
               {currentStore.name}
             </Button>
@@ -95,6 +97,7 @@ export default function GNB() {
             onClose={() => setAnchorEl(null)}
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
             transformOrigin={{ vertical: "top", horizontal: "right" }}
+            slotProps={{ paper: { sx: { borderRadius: 2, boxShadow: "0 4px 16px rgba(0,0,0,0.08)", border: "1px solid #f1f3f5" } } }}
           >
             {stores.map((store) => (
               <MenuItem
@@ -104,21 +107,18 @@ export default function GNB() {
                   setAnchorEl(null);
                 }}
                 selected={store.id === currentStore?.id}
+                sx={{ fontSize: "0.85rem", "&.Mui-selected": { backgroundColor: "#f8f9fa" } }}
               >
                 <ListItemIcon sx={{ minWidth: 28 }}>
-                  {store.id === currentStore?.id ? <CheckIcon fontSize="small" /> : null}
+                  {store.id === currentStore?.id ? <CheckIcon fontSize="small" sx={{ color: "#1a1a1b" }} /> : null}
                 </ListItemIcon>
                 <ListItemText>{store.name}</ListItemText>
               </MenuItem>
             ))}
-            <Divider />
-            <MenuItem
-              onClick={() => {
-                setAddDialog(true);
-              }}
-            >
+            <Divider sx={{ borderColor: "#f1f3f5" }} />
+            <MenuItem onClick={() => { setAddDialog(true); }} sx={{ fontSize: "0.85rem" }}>
               <ListItemIcon sx={{ minWidth: 28 }}>
-                <AddIcon fontSize="small" />
+                <AddIcon fontSize="small" sx={{ color: "#868e96" }} />
               </ListItemIcon>
               <ListItemText>스토어 추가</ListItemText>
             </MenuItem>
@@ -127,7 +127,7 @@ export default function GNB() {
       </AppBar>
 
       <Dialog open={addDialog} onClose={() => setAddDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: "1rem" }}>스토어 추가</DialogTitle>
+        <DialogTitle sx={{ fontSize: "1rem", fontWeight: 600, color: "#1a1a1b" }}>스토어 추가</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -143,7 +143,7 @@ export default function GNB() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddDialog(false)} size="small">
+          <Button onClick={() => setAddDialog(false)} size="small" sx={{ color: "#868e96" }}>
             취소
           </Button>
           <Button onClick={handleAddStore} variant="contained" size="small" disabled={saving || !newStoreName.trim()}>

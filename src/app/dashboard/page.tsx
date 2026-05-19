@@ -37,8 +37,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <Box sx={{ backgroundColor: '#f4f6f8', minHeight: 'calc(100vh - 48px)' }}>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* 헤더 */}
         <Box sx={{ mb: 4 }}>
           <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
@@ -177,6 +176,5 @@ export default function DashboardPage() {
           </TableContainer>
         </Paper>
       </Container>
-    </Box>
   );
 }
