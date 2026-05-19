@@ -21,6 +21,20 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(url, options);
+    if (res.status === 429 && attempt < maxRetries) {
+      const waitMs = 2000 * Math.pow(2, attempt);
+      console.warn(`429 Rate Limit - ${waitMs}ms 후 재시도 (${attempt + 1}/${maxRetries})`);
+      await sleep(waitMs);
+      continue;
+    }
+    return res;
+  }
+  throw new Error('최대 재시도 횟수 초과');
+}
+
 function toCompactDate(date: string) {
   return date.replace(/-/g, '');
 }
@@ -74,7 +88,7 @@ async function fetchOrderSheetsByStatus(date: string, status: string): Promise<O
 
     const authorization = generateHmacSignature('GET', path, query);
 
-    const res = await fetch(`${BASE_URL}${path}?${query}`, {
+    const res = await fetchWithRetry(`${BASE_URL}${path}?${query}`, {
       method: 'GET',
       headers: {
         'Authorization': authorization,
@@ -162,7 +176,7 @@ async function fetchRgOrders(dateFrom: string, dateTo: string): Promise<RgOrder[
 
     const authorization = generateHmacSignature('GET', path, query);
 
-    const res = await fetch(`${BASE_URL}${path}?${query}`, {
+    const res = await fetchWithRetry(`${BASE_URL}${path}?${query}`, {
       method: 'GET',
       headers: {
         'Authorization': authorization,
@@ -180,6 +194,7 @@ async function fetchRgOrders(dateFrom: string, dateTo: string): Promise<RgOrder[
 
     if (json.nextToken && json.nextToken !== '') {
       nextToken = json.nextToken;
+      await sleep(300);
     } else {
       hasMore = false;
     }
@@ -245,8 +260,22 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
     }
   }
 
-  // 2. 로켓그로스 주문 조회 (한번에 최대 30일)
-  const rgOrders = await fetchRgOrders(dateFrom, dateTo);
+  // 2. 로켓그로스 주문 조회 (최대 1개월 제한이므로 월 단위로 분할)
+  const rgOrders: RgOrder[] = [];
+  {
+    let chunkStart = new Date(dateFrom);
+    const finalEnd = new Date(dateTo);
+    while (chunkStart <= finalEnd) {
+      const chunkEndDate = new Date(chunkStart.getFullYear(), chunkStart.getMonth() + 1, 0);
+      const chunkEnd = chunkEndDate < finalEnd ? chunkEndDate : finalEnd;
+      const from = chunkStart.toISOString().split('T')[0];
+      const to = chunkEnd.toISOString().split('T')[0];
+      const chunk = await fetchRgOrders(from, to);
+      rgOrders.push(...chunk);
+      chunkStart = new Date(chunkEnd);
+      chunkStart.setDate(chunkStart.getDate() + 1);
+    }
+  }
 
   for (const order of rgOrders) {
     const paidMs = Number(order.paidAt);

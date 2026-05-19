@@ -24,9 +24,11 @@ import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import { useStore } from "@/contexts/StoreContext";
 
 const menus = [
+  { label: "대시보드", href: "/dashboard" },
   { label: "매입가 관리", href: "/cost" },
   { label: "상품관리", href: "/products" },
   { label: "매출 분석", href: "/sales" },
+  { label: "지출관리", href: "/expenses" },
 ];
 
 export default function GNB() {

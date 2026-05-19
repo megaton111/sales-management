@@ -77,6 +77,19 @@ create table if not exists product_name_mapping (
   unique (store_id, coupang_product_name)
 );
 
+-- 지출 관리
+create table if not exists expenses (
+  id serial primary key,
+  store_id integer not null,
+  expense_date date not null,
+  expense_type text not null,
+  amount integer not null default 0,
+  memo text not null default '',
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_expenses_store_date on expenses(store_id, expense_date);
+
 -- 일별 매출 요약 (채널별)
 create table if not exists daily_sales (
   id serial primary key,

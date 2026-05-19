@@ -14,6 +14,8 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
+import Backdrop from '@mui/material/Backdrop';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import { useStore } from '@/contexts/StoreContext';
@@ -186,7 +188,7 @@ export default function SalesPage() {
               disabled={batchLoading || !currentStore}
               sx={{ ml: 'auto', color: 'text.secondary' }}
             >
-              {batchLoading ? <CircularProgress size={16} /> : '동기화'}
+              {batchLoading ? <CircularProgress size={16} /> : '매출 동기화'}
             </Button>
           )}
         </Box>
@@ -366,6 +368,18 @@ export default function SalesPage() {
           </Box>
         </Box>
       </Stack>
+
+      <Backdrop open={batchLoading} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+        <Box sx={{ width: 320, textAlign: 'center' }}>
+          <Typography sx={{ color: '#fff', mb: 2, fontWeight: 500 }}>
+            매출을 불러오는 중입니다.
+          </Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontSize: '0.85rem' }}>
+            잠시만 기다려주세요
+          </Typography>
+          <LinearProgress sx={{ borderRadius: 1, height: 6 }} />
+        </Box>
+      </Backdrop>
 
       <Snackbar
         open={snackbar.open}
