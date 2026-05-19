@@ -1,18 +1,5 @@
-"use client";
-
-import Container from "@mui/material/Container";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return (
-    <Container maxWidth="lg">
-      <Box sx={{ py: 4 }}>
-        <Typography variant="h5">쿠팡 판매 관리</Typography>
-        <Typography color="text.secondary">
-          상단 메뉴에서 원하는 기능을 선택하세요.
-        </Typography>
-      </Box>
-    </Container>
-  );
+  redirect("/dashboard");
 }
