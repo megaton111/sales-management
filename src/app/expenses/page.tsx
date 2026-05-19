@@ -135,7 +135,7 @@ export default function ExpensesPage() {
   const dateMax = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
   return (
-    <Container maxWidth="md" sx={{ py: 3 }}>
+    <Container maxWidth="lg" sx={{ py: 3 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         {/* 월 선택 */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>

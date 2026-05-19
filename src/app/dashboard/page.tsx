@@ -12,6 +12,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useProductProfits from '@/hooks/useProductProfits';
 import useDashboard from '@/hooks/useDashboard';
@@ -32,7 +33,7 @@ export default function DashboardPage() {
   const [year] = useState(new Date().getFullYear());
   const { currentStore } = useStore();
   const { profitMap } = useProductProfits(currentStore?.id ?? null);
-  const { loading, totalSales, totalExpenses, totalProfit, salesRanking, currentMonth } = useDashboard(
+  const { loading, totalSales, totalExpenses, totalProfit, monthlyChart, salesRanking, currentMonth } = useDashboard(
     currentStore?.id ?? null, year, profitMap
   );
 
@@ -120,6 +121,48 @@ export default function DashboardPage() {
             </Box>
           </Paper>
         </Box>
+
+        {/* 월별 매출/순이익 차트 */}
+        {!loading && (
+          <Paper sx={{ ...cardSx, mb: 2.5 }}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>월별 매출 · 순이익</Typography>
+            <Box sx={{ width: '100%', height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyChart} barCategoryGap="25%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f3f5" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#868e96' }} axisLine={{ stroke: '#f1f3f5' }} tickLine={false} />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#adb5bd' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v: number) => {
+                      if (Math.abs(v) >= 10000_0000) return `${(v / 10000_0000).toFixed(1)}억`;
+                      if (Math.abs(v) >= 10000) return `${(v / 10000).toFixed(0)}만`;
+                      return v.toLocaleString();
+                    }}
+                    width={52}
+                  />
+                  <Tooltip
+                    itemSorter={(item) => (item.dataKey === 'sales' ? 0 : 1)}
+                    formatter={(value, name) => [
+                      `${Number(value).toLocaleString('ko-KR')}원`,
+                      name === 'sales' ? '매출' : '순이익',
+                    ]}
+                    labelStyle={{ fontSize: 12, color: '#495057', fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 8, border: '1px solid #f1f3f5', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontSize: 13 }}
+                  />
+                  <Legend
+                    formatter={(value: string) => (value === 'sales' ? '매출' : '순이익')}
+                    wrapperStyle={{ fontSize: 12, color: '#868e96' }}
+                  />
+                  <ReferenceLine y={0} stroke="#dee2e6" />
+                  <Bar dataKey="sales" fill="#343a40" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" fill="#2b8a3e" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          </Paper>
+        )}
 
         {/* 판매 순위 */}
         <Paper sx={cardSx}>

@@ -90,6 +90,36 @@ export default function useDashboard(
     return { yearly: yearly - totalExpenses.yearly, monthly: monthly - totalExpenses.monthly };
   }, [items, profitMap, currentMonth, totalExpenses]);
 
+  const monthlyChart = useMemo(() => {
+    const monthMap = new Map<number, { sales: number; profit: number; expenses: number }>();
+    for (let m = 1; m <= 12; m++) {
+      monthMap.set(m, { sales: 0, profit: 0, expenses: 0 });
+    }
+    for (const row of sales) {
+      const m = Number(row.sale_date.slice(5, 7));
+      const entry = monthMap.get(m)!;
+      entry.sales += Number(row.total_sale_amount);
+    }
+    for (const item of items) {
+      const m = Number(item.sale_date.slice(5, 7));
+      const unitProfit = profitMap.get(item.product_name) ?? 0;
+      const entry = monthMap.get(m)!;
+      entry.profit += unitProfit * item.quantity;
+    }
+    for (const row of expenses) {
+      const m = Number(row.expense_date.slice(5, 7));
+      const entry = monthMap.get(m)!;
+      entry.expenses += Number(row.amount);
+    }
+    return Array.from(monthMap.entries())
+      .filter(([m]) => m <= currentMonth)
+      .map(([m, v]) => ({
+        month: `${m}월`,
+        sales: v.sales,
+        profit: v.profit - v.expenses,
+      }));
+  }, [sales, items, expenses, profitMap]);
+
   const salesRanking = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of items) {
@@ -100,5 +130,5 @@ export default function useDashboard(
       .sort((a, b) => b.quantity - a.quantity);
   }, [items]);
 
-  return { loading, totalSales, totalExpenses, totalProfit, salesRanking, currentMonth };
+  return { loading, totalSales, totalExpenses, totalProfit, monthlyChart, salesRanking, currentMonth };
 }

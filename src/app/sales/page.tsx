@@ -18,6 +18,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Backdrop from '@mui/material/Backdrop';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import SyncIcon from '@mui/icons-material/Sync';
 import { useStore } from '@/contexts/StoreContext';
 import useMonthlySales from '@/hooks/useMonthlySales';
 import useDailySalesDetail from '@/hooks/useDailySalesDetail';
@@ -213,13 +214,34 @@ export default function SalesPage() {
           </ButtonGroup>
           {isLocal && (
             <Button
-              variant="text"
+              variant="outlined"
               size="small"
               onClick={handleBatchSync}
               disabled={batchLoading || !currentStore}
-              sx={{ ml: 'auto', color: '#868e96', fontSize: '0.8rem' }}
+              startIcon={
+                <SyncIcon
+                  sx={{
+                    fontSize: '1rem !important',
+                    ...(batchLoading && {
+                      animation: 'spin 1s linear infinite',
+                      '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
+                    }),
+                  }}
+                />
+              }
+              sx={{
+                ml: 'auto',
+                borderColor: '#dee2e6',
+                color: '#495057',
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                borderRadius: 2,
+                px: 1.5,
+                '&:hover': { borderColor: '#adb5bd', backgroundColor: '#f8f9fa' },
+                '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#adb5bd' },
+              }}
             >
-              {batchLoading ? <CircularProgress size={16} /> : '매출 동기화'}
+              {batchLoading ? '동기화 중...' : '매출 동기화'}
             </Button>
           )}
         </Box>
@@ -248,7 +270,7 @@ export default function SalesPage() {
             </Typography>
           </Paper>
           <Paper elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {} }}>
-            <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>{month}월 순이익</Typography>
+            <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>{month}월 순이익(지출비용제외)</Typography>
             <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
               {loading ? '-' : formatNumber(totalProfit)}
               <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
@@ -266,7 +288,7 @@ export default function SalesPage() {
               { label: '어제 순이익', value: ydProfit, color: ydProfit >= 0 ? '#2b8a3e' : '#e03131' },
             ].map((item) => (
               <Paper key={item.label} elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, py: 1.5 }}>
-                <Typography sx={{ color: '#adb5bd', fontSize: '0.7rem', mb: 0.3 }}>{item.label}</Typography>
+                <Typography sx={{ color: '#adb5bd', fontSize: '0.7rem', mb: 0.3 }}>{item.label}(지출비용제외)</Typography>
                 <Typography sx={{ fontWeight: 600, fontSize: '0.95rem', color: item.color, letterSpacing: '-0.02em' }}>
                   {item.value !== 0 ? formatNumber(item.value) : '-'}
                   {item.value !== 0 && <Typography component="span" sx={{ fontSize: '0.7rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>}
