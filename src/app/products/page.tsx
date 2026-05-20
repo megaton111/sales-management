@@ -455,33 +455,6 @@ export default function ProductsPage() {
     });
   };
 
-  const handleResyncAll = async () => {
-    if (!currentStore) return;
-    const supabase = createClient();
-    for (const sale of sales) {
-      const supply_price = calcSupplyPrice(sale.selling_price);
-      const profit = supply_price - sale.market_commission - sale.unit_cost - sale.warehouse_fee - sale.shipping_fee - sale.barcode_fee - sale.box_fee - sale.other_fee;
-      await supabase.from("product_sales").upsert({
-        name: sale.name,
-        store_id: currentStore.id,
-        category: sale.category,
-        selling_price: sale.selling_price,
-        market_commission: sale.market_commission,
-        unit_cost: sale.unit_cost,
-        warehouse_fee: sale.warehouse_fee,
-        shipping_fee: sale.shipping_fee,
-        barcode_fee: sale.barcode_fee,
-        box_fee: sale.box_fee,
-        other_fee: sale.other_fee,
-        memo: sale.memo,
-        profit,
-        base_name: sale.base_name,
-        multiplier: sale.multiplier,
-        updated_at: new Date().toISOString(),
-      });
-    }
-    alert(`${sales.length}개 상품 이익금 일괄 재저장 완료`);
-  };
 
   if (storeLoading || loading) {
     return (
@@ -508,11 +481,6 @@ export default function ProductsPage() {
 
   return (
     <Box sx={{ px: 3, py: 3 }}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
-        <Button size="small" variant="outlined" onClick={handleResyncAll} sx={{ borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}>
-          이익금 일괄 재저장
-        </Button>
-      </Box>
       <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
         <TableContainer>
           <Table size="small">
