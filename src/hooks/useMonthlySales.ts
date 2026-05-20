@@ -14,6 +14,7 @@ interface SaleItem {
   channel: string;
   product_name: string;
   quantity: number;
+  unit_profit: number;
 }
 
 interface DaySales {
@@ -72,7 +73,7 @@ export default function useMonthlySales(
         const day = new Date(item.sale_date).getDate();
         const existing = map.get(day);
         if (!existing) continue;
-        const unitProfit = profitMap.get(item.product_name) ?? 0;
+        const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
         const itemProfit = unitProfit * item.quantity;
         if (item.channel === 'marketplace') {
           existing.marketplaceProfit += itemProfit;

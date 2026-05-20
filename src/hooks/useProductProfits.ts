@@ -23,10 +23,10 @@ export default function useProductProfits(storeId: number | null) {
       });
 
       const map = new Map<string, number>();
-      (mappingRes.data || []).forEach((m: { coupang_product_name: string; product_sale_name: string; multiplier: number }) => {
+      (mappingRes.data || []).forEach((m: { coupang_product_name: string; product_sale_name: string }) => {
         const profit = saleProfitMap[m.product_sale_name];
         if (profit !== undefined) {
-          map.set(m.coupang_product_name, profit * (m.multiplier ?? 1));
+          map.set(m.coupang_product_name, profit);
         }
       });
 

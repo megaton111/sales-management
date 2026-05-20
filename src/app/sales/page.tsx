@@ -175,7 +175,7 @@ export default function SalesPage() {
         </TableHead>
         <TableBody>
           {tableItems.map((item) => {
-            const unitProfit = profitMap.get(item.product_name) ?? 0;
+            const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
             const itemProfit = unitProfit * item.quantity;
             return (
               <TableRow key={`${item.channel}_${item.vendor_item_id}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
@@ -288,7 +288,7 @@ export default function SalesPage() {
               { label: '어제 순이익', value: ydProfit, color: ydProfit >= 0 ? '#2b8a3e' : '#e03131' },
             ].map((item) => (
               <Paper key={item.label} elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, py: 1.5 }}>
-                <Typography sx={{ color: '#adb5bd', fontSize: '0.7rem', mb: 0.3 }}>{item.label}(지출비용제외)</Typography>
+                <Typography sx={{ color: '#adb5bd', fontSize: '0.7rem', mb: 0.3 }}>{item.label}</Typography>
                 <Typography sx={{ fontWeight: 600, fontSize: '0.95rem', color: item.color, letterSpacing: '-0.02em' }}>
                   {item.value !== 0 ? formatNumber(item.value) : '-'}
                   {item.value !== 0 && <Typography component="span" sx={{ fontSize: '0.7rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>}

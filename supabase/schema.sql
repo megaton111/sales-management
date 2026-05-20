@@ -47,6 +47,15 @@ create table if not exists product_averages (
   primary key (name, store_id)
 );
 
+-- 평균 원가 변동 이력
+create table if not exists product_cost_history (
+  id serial primary key,
+  name text not null,
+  store_id integer not null references stores(id),
+  average_unit_cost numeric not null,
+  created_at timestamptz default now()
+);
+
 create table if not exists product_sales (
   name text not null,
   store_id integer not null references stores(id),
@@ -61,6 +70,8 @@ create table if not exists product_sales (
   other_fee numeric not null default 0,
   memo text not null default '',
   profit numeric not null default 0,
+  base_name text,
+  multiplier integer not null default 1,
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   primary key (name, store_id)
@@ -72,7 +83,6 @@ create table if not exists product_name_mapping (
   store_id integer not null references stores(id),
   coupang_product_name text not null,
   product_sale_name text not null,
-  multiplier integer not null default 1,
   created_at timestamptz default now(),
   unique (store_id, coupang_product_name)
 );
@@ -116,6 +126,7 @@ create table if not exists daily_sales_items (
   quantity integer not null default 0,
   sale_amount numeric not null default 0,
   settlement_amount numeric not null default 0,
+  unit_profit numeric not null default 0,
   sale_type text not null default 'SALE',
   created_at timestamptz default now(),
   unique (store_id, sale_date, channel, vendor_item_id, sale_type)

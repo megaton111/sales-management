@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         .order('sale_date', { ascending: true }),
       supabase
         .from('daily_sales_items')
-        .select('sale_date, channel, product_name, quantity')
+        .select('sale_date, channel, product_name, quantity, unit_profit')
         .eq('store_id', storeId)
         .gte('sale_date', startDate)
         .lte('sale_date', endDate),

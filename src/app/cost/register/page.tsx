@@ -192,6 +192,12 @@ function CostRegisterForm() {
         updated_at: new Date().toISOString(),
       });
 
+      await supabase.from("product_cost_history").insert({
+        name: form.name,
+        store_id: storeId,
+        average_unit_cost: avgCost,
+      });
+
       const { data: saleRow } = await supabase
         .from("product_sales")
         .select("selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee")
@@ -206,6 +212,25 @@ function CostRegisterForm() {
           profit,
           updated_at: new Date().toISOString(),
         }).eq("name", form.name).eq("store_id", storeId);
+      }
+
+      // 배수 상품 원가 연쇄 업데이트
+      const { data: bundleSales } = await supabase
+        .from("product_sales")
+        .select("name, multiplier, selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee")
+        .eq("base_name", form.name)
+        .eq("store_id", storeId)
+        .gt("multiplier", 1);
+
+      for (const bs of bundleSales || []) {
+        const bundleUnitCost = avgCost * bs.multiplier;
+        const supplyPrice = Math.round(bs.selling_price / 1.1);
+        const bundleProfit = supplyPrice - bs.market_commission - bundleUnitCost - bs.warehouse_fee - bs.shipping_fee - bs.barcode_fee - bs.box_fee - (bs.other_fee || 0);
+        await supabase.from("product_sales").update({
+          unit_cost: bundleUnitCost,
+          profit: bundleProfit,
+          updated_at: new Date().toISOString(),
+        }).eq("name", bs.name).eq("store_id", storeId);
       }
 
       setSnackbar({ open: true, message: `저장 완료 (ID: ${id})`, severity: "success" });

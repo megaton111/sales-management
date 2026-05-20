@@ -46,11 +46,10 @@ export async function POST(request: NextRequest) {
       const { error: insertError } = await supabase
         .from('product_name_mapping')
         .insert(
-          mappingItems.map((item: { coupangProductName: string; multiplier: number }) => ({
+          mappingItems.map((item: { coupangProductName: string }) => ({
             store_id: storeId,
             coupang_product_name: item.coupangProductName,
             product_sale_name: productSaleName,
-            multiplier: item.multiplier || 1,
           }))
         );
 

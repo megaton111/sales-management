@@ -11,6 +11,7 @@ interface SaleItem {
   channel: string;
   product_name: string;
   quantity: number;
+  unit_profit: number;
 }
 
 interface ExpenseRow {
@@ -80,7 +81,7 @@ export default function useDashboard(
     let monthly = 0;
     const monthStr = String(currentMonth).padStart(2, '0');
     for (const item of items) {
-      const unitProfit = profitMap.get(item.product_name) ?? 0;
+      const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
       const itemProfit = unitProfit * item.quantity;
       yearly += itemProfit;
       if (item.sale_date.slice(5, 7) === monthStr) {
@@ -102,7 +103,7 @@ export default function useDashboard(
     }
     for (const item of items) {
       const m = Number(item.sale_date.slice(5, 7));
-      const unitProfit = profitMap.get(item.product_name) ?? 0;
+      const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
       const entry = monthMap.get(m)!;
       entry.profit += unitProfit * item.quantity;
     }

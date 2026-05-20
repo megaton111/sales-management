@@ -13,6 +13,25 @@ export async function POST(request: NextRequest) {
     const dailyMap = await fetchAllOrders(dateFrom, dateTo);
     const supabase = await createClient();
 
+    // 이익금 스냅샷용 profitMap 생성
+    const [{ data: salesData }, { data: mappingData }] = await Promise.all([
+      supabase.from('product_sales').select('name, profit').eq('store_id', storeId),
+      supabase.from('product_name_mapping').select('coupang_product_name, product_sale_name').eq('store_id', storeId),
+    ]);
+
+    const saleProfitMap: Record<string, number> = {};
+    (salesData || []).forEach((s: { name: string; profit: number }) => {
+      saleProfitMap[s.name] = s.profit;
+    });
+
+    const profitMap = new Map<string, number>();
+    (mappingData || []).forEach((m: { coupang_product_name: string; product_sale_name: string }) => {
+      const profit = saleProfitMap[m.product_sale_name];
+      if (profit !== undefined) {
+        profitMap.set(m.coupang_product_name, profit);
+      }
+    });
+
     let totalDays = 0;
 
     for (const [key, daily] of dailyMap) {
@@ -51,6 +70,7 @@ export async function POST(request: NextRequest) {
         quantity: item.quantity,
         sale_amount: item.salePrice,
         settlement_amount: 0,
+        unit_profit: profitMap.get(item.productName) ?? 0,
         sale_type: 'SALE',
       }));
 

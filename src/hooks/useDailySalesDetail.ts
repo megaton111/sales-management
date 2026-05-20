@@ -8,6 +8,7 @@ export interface SalesItem {
   channel: string;
   quantity: number;
   sale_amount: number;
+  unit_profit: number;
 }
 
 function mergeItems(items: SalesItem[]): SalesItem[] {
@@ -19,6 +20,7 @@ function mergeItems(items: SalesItem[]): SalesItem[] {
     if (existing) {
       existing.quantity += item.quantity;
       existing.sale_amount += item.sale_amount;
+      if (!existing.unit_profit && item.unit_profit) existing.unit_profit = item.unit_profit;
     } else {
       merged.set(k, { ...item });
     }
