@@ -64,10 +64,10 @@ export default function SalesPage() {
   const [month, setMonth] = useState(currentMonth);
   const { currentStore } = useStore();
 
-  const { profitMap } = useProductProfits(currentStore?.id ?? null);
+  const { costMap } = useProductProfits(currentStore?.id ?? null);
 
   const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalProfit, loading } = useMonthlySales(
-    currentStore?.id ?? null, year, month, profitMap
+    currentStore?.id ?? null, year, month, costMap
   );
 
   const { items, loading: detailLoading, selectedDate, selectedChannel, label: detailLabel, fetchDetail, fetchMonthly, clear: clearDetail } = useDailySalesDetail(
@@ -199,8 +199,10 @@ export default function SalesPage() {
         </TableHead>
         <TableBody>
           {tableItems.map((item) => {
-            const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
-            const itemProfit = unitProfit * item.quantity;
+            const cost = costMap.get(item.product_name);
+            const itemProfit = cost
+              ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
+              : item.unit_profit * item.quantity;
             return (
               <TableRow key={`${item.channel}_${item.vendor_item_id}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
                 <TableCell sx={tdSx}>{item.product_name}</TableCell>

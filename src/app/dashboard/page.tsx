@@ -32,9 +32,9 @@ const cardSx = {
 export default function DashboardPage() {
   const [year] = useState(new Date().getFullYear());
   const { currentStore } = useStore();
-  const { profitMap } = useProductProfits(currentStore?.id ?? null);
+  const { costMap } = useProductProfits(currentStore?.id ?? null);
   const { loading, totalSales, totalExpenses, totalProfit, monthlyChart, salesRanking, currentMonth } = useDashboard(
-    currentStore?.id ?? null, year, profitMap
+    currentStore?.id ?? null, year, costMap
   );
 
   return (

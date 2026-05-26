@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { ProductCostData } from './useProductProfits';
 
 interface DailySaleRow {
   id: number;
@@ -15,6 +16,7 @@ interface SaleItem {
   product_name: string;
   quantity: number;
   unit_profit: number;
+  sale_amount: number;
 }
 
 interface DaySales {
@@ -24,11 +26,17 @@ interface DaySales {
   rocketGrowthProfit: number;
 }
 
+function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData): number {
+  const supplyPrice = Math.round(saleAmount / 1.1);
+  const totalCost = (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * quantity;
+  return supplyPrice - totalCost;
+}
+
 export default function useMonthlySales(
   storeId: number | null,
   year: number,
   month: number,
-  profitMap?: Map<string, number>
+  costMap?: Map<string, ProductCostData>
 ) {
   const [rows, setRows] = useState<DailySaleRow[]>([]);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -68,13 +76,15 @@ export default function useMonthlySales(
       map.set(day, existing);
     }
 
-    if (profitMap && profitMap.size > 0) {
+    if (costMap && costMap.size > 0) {
       for (const item of saleItems) {
         const day = new Date(item.sale_date).getDate();
         const existing = map.get(day);
         if (!existing) continue;
-        const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
-        const itemProfit = unitProfit * item.quantity;
+        const cost = costMap.get(item.product_name);
+        const itemProfit = cost
+          ? calcItemProfit(item.sale_amount, item.quantity, cost)
+          : item.unit_profit * item.quantity;
         if (item.channel === 'marketplace') {
           existing.marketplaceProfit += itemProfit;
         } else if (item.channel === 'rocket_growth') {
@@ -84,7 +94,7 @@ export default function useMonthlySales(
     }
 
     return map;
-  }, [rows, saleItems, profitMap]);
+  }, [rows, saleItems, costMap]);
 
   const totalMarketplace = useMemo(() =>
     rows.filter(r => r.channel === 'marketplace').reduce((sum, r) => sum + Number(r.total_sale_amount), 0),
@@ -97,13 +107,13 @@ export default function useMonthlySales(
   );
 
   const totalProfit = useMemo(() => {
-    if (!profitMap || profitMap.size === 0) return 0;
+    if (!costMap || costMap.size === 0) return 0;
     let sum = 0;
     for (const [, daySales] of dailySalesMap) {
       sum += daySales.marketplaceProfit + daySales.rocketGrowthProfit;
     }
     return sum;
-  }, [dailySalesMap, profitMap]);
+  }, [dailySalesMap, costMap]);
 
   return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalProfit, loading, refetch: fetchData };
 }

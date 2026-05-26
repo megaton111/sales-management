@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 
+export interface ProductCostData {
+  market_commission: number;
+  unit_cost: number;
+  warehouse_fee: number;
+  shipping_fee: number;
+  barcode_fee: number;
+  box_fee: number;
+  other_fee: number;
+  multiplier: number;
+  base_name: string | null;
+}
+
 export default function useProductProfits(storeId: number | null) {
-  const [profitMap, setProfitMap] = useState<Map<string, number>>(new Map());
+  const [costMap, setCostMap] = useState<Map<string, ProductCostData>>(new Map());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -13,29 +25,39 @@ export default function useProductProfits(storeId: number | null) {
       const supabase = createClient();
 
       const [{ data: salesData }, mappingRes] = await Promise.all([
-        supabase.from('product_sales').select('name, profit').eq('store_id', storeId),
+        supabase.from('product_sales').select('name, market_commission, unit_cost, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee, multiplier, base_name').eq('store_id', storeId),
         fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
       ]);
 
-      const saleProfitMap: Record<string, number> = {};
-      (salesData || []).forEach((s: { name: string; profit: number }) => {
-        saleProfitMap[s.name] = s.profit;
+      const saleCostMap: Record<string, ProductCostData> = {};
+      (salesData || []).forEach((s: ProductCostData & { name: string }) => {
+        saleCostMap[s.name] = {
+          market_commission: s.market_commission || 0,
+          unit_cost: s.unit_cost || 0,
+          warehouse_fee: s.warehouse_fee || 0,
+          shipping_fee: s.shipping_fee || 0,
+          barcode_fee: s.barcode_fee || 0,
+          box_fee: s.box_fee || 0,
+          other_fee: s.other_fee || 0,
+          multiplier: s.multiplier || 1,
+          base_name: s.base_name,
+        };
       });
 
-      const map = new Map<string, number>();
+      const map = new Map<string, ProductCostData>();
       (mappingRes.data || []).forEach((m: { coupang_product_name: string; product_sale_name: string }) => {
-        const profit = saleProfitMap[m.product_sale_name];
-        if (profit !== undefined) {
-          map.set(m.coupang_product_name, profit);
+        const cost = saleCostMap[m.product_sale_name];
+        if (cost) {
+          map.set(m.coupang_product_name, cost);
         }
       });
 
-      setProfitMap(map);
+      setCostMap(map);
       setLoading(false);
     };
 
     fetchData();
   }, [storeId]);
 
-  return { profitMap, loading };
+  return { costMap, loading };
 }

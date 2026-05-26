@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { ProductCostData } from './useProductProfits';
 
 interface SaleRow {
   sale_date: string;
@@ -12,6 +13,7 @@ interface SaleItem {
   product_name: string;
   quantity: number;
   unit_profit: number;
+  sale_amount: number;
 }
 
 interface ExpenseRow {
@@ -19,10 +21,16 @@ interface ExpenseRow {
   amount: number;
 }
 
+function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData): number {
+  const supplyPrice = Math.round(saleAmount / 1.1);
+  const totalCost = (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * quantity;
+  return supplyPrice - totalCost;
+}
+
 export default function useDashboard(
   storeId: number | null,
   year: number,
-  profitMap: Map<string, number>
+  costMap: Map<string, ProductCostData>
 ) {
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
@@ -81,15 +89,17 @@ export default function useDashboard(
     let monthly = 0;
     const monthStr = String(currentMonth).padStart(2, '0');
     for (const item of items) {
-      const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
-      const itemProfit = unitProfit * item.quantity;
+      const cost = costMap.get(item.product_name);
+      const itemProfit = cost
+        ? calcItemProfit(item.sale_amount, item.quantity, cost)
+        : item.unit_profit * item.quantity;
       yearly += itemProfit;
       if (item.sale_date.slice(5, 7) === monthStr) {
         monthly += itemProfit;
       }
     }
     return { yearly: yearly - totalExpenses.yearly, monthly: monthly - totalExpenses.monthly };
-  }, [items, profitMap, currentMonth, totalExpenses]);
+  }, [items, costMap, currentMonth, totalExpenses]);
 
   const monthlyChart = useMemo(() => {
     const monthMap = new Map<number, { sales: number; profit: number; expenses: number }>();
@@ -103,9 +113,11 @@ export default function useDashboard(
     }
     for (const item of items) {
       const m = Number(item.sale_date.slice(5, 7));
-      const unitProfit = item.unit_profit || (profitMap.get(item.product_name) ?? 0);
+      const cost = costMap.get(item.product_name);
       const entry = monthMap.get(m)!;
-      entry.profit += unitProfit * item.quantity;
+      entry.profit += cost
+        ? calcItemProfit(item.sale_amount, item.quantity, cost)
+        : item.unit_profit * item.quantity;
     }
     for (const row of expenses) {
       const m = Number(row.expense_date.slice(5, 7));
@@ -119,7 +131,7 @@ export default function useDashboard(
         sales: v.sales,
         profit: v.profit - v.expenses,
       }));
-  }, [sales, items, expenses, profitMap]);
+  }, [sales, items, expenses, costMap]);
 
   const salesRanking = useMemo(() => {
     const map = new Map<string, number>();
