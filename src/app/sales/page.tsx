@@ -19,6 +19,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Backdrop from '@mui/material/Backdrop';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import SyncIcon from '@mui/icons-material/Sync';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -60,8 +62,9 @@ export default function SalesPage() {
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
 
-  const [year] = useState(currentYear);
+  const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
+  const yearOptions = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
 
   const { costMap } = useProductProfits(currentStore?.id ?? null);
@@ -100,7 +103,7 @@ export default function SalesPage() {
 
   const lastDate = new Date(year, month, 0).getDate();
   const days = Array.from({ length: lastDate }, (_, i) => i + 1);
-  const monthButtons = Array.from({ length: currentMonth }, (_, i) => i + 1);
+  const monthButtons = Array.from({ length: year === currentYear ? currentMonth : 12 }, (_, i) => i + 1);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const CARD_WIDTH = 168; // 160 minWidth + 8 gap
@@ -224,9 +227,23 @@ export default function SalesPage() {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {/* 헤더 + 월 선택 */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1a1a1b' }}>
-            {year}년
-          </Typography>
+          <Select
+            value={year}
+            onChange={(e) => { setYear(Number(e.target.value)); setMonth(1); clearDetail(); }}
+            size="small"
+            sx={{
+              fontWeight: 700,
+              fontSize: '1.1rem',
+              color: '#1a1a1b',
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: '#dee2e6' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#adb5bd' },
+              minWidth: 100,
+            }}
+          >
+            {yearOptions.map((y) => (
+              <MenuItem key={y} value={y}>{y}년</MenuItem>
+            ))}
+          </Select>
           <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, '&.MuiButton-contained': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' } } }}>
             {monthButtons.map((m) => (
               <Button

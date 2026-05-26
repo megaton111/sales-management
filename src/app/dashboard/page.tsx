@@ -12,6 +12,8 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useProductProfits from '@/hooks/useProductProfits';
@@ -30,7 +32,9 @@ const cardSx = {
 };
 
 export default function DashboardPage() {
-  const [year] = useState(new Date().getFullYear());
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const yearOptions = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
   const { costMap } = useProductProfits(currentStore?.id ?? null);
   const { loading, totalSales, totalExpenses, totalProfit, monthlyChart, salesRanking, currentMonth } = useDashboard(
@@ -41,9 +45,28 @@ export default function DashboardPage() {
     <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* 헤더 */}
         <Box sx={{ mb: 4 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
-            대시보드
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
+              대시보드
+            </Typography>
+            <Select
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              size="small"
+              sx={{
+                fontWeight: 700,
+                fontSize: '1.1rem',
+                color: '#1a1a1b',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#dee2e6' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#adb5bd' },
+                minWidth: 100,
+              }}
+            >
+              {yearOptions.map((y) => (
+                <MenuItem key={y} value={y}>{y}년</MenuItem>
+              ))}
+            </Select>
+          </Box>
           <Typography sx={{ fontSize: '0.85rem', color: '#868e96', mt: 0.5 }}>
             {year}년 {currentStore?.name || ''} 운영 현황
           </Typography>
