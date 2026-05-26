@@ -254,8 +254,9 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
 
       for (const item of order.orderItems) {
         if (item.canceled) continue;
-        daily.totalSalePrice += item.orderPrice;
-        addItem(daily, item.vendorItemId, item.sellerProductName, item.vendorItemName, item.shippingCount, item.orderPrice);
+        const saleAmount = item.orderPrice - item.coupangDiscount;
+        daily.totalSalePrice += saleAmount;
+        addItem(daily, item.vendorItemId, item.sellerProductName, item.vendorItemName, item.shippingCount, saleAmount);
       }
     }
   }
