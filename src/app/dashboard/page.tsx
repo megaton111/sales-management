@@ -179,8 +179,8 @@ export default function DashboardPage() {
                     wrapperStyle={{ fontSize: 12, color: '#868e96' }}
                   />
                   <ReferenceLine y={0} stroke="#dee2e6" />
-                  <Bar dataKey="sales" fill="#343a40" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="profit" fill="#2b8a3e" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="sales" fill="#a5d8ff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" fill="#1864ab" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Box>

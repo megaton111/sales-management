@@ -124,14 +124,16 @@ export default function useDashboard(
       const entry = monthMap.get(m)!;
       entry.expenses += Number(row.amount);
     }
+    const currentYear = new Date().getFullYear();
+    const maxMonth = year < currentYear ? 12 : currentMonth;
     return Array.from(monthMap.entries())
-      .filter(([m]) => m <= currentMonth)
+      .filter(([m]) => m <= maxMonth)
       .map(([m, v]) => ({
         month: `${m}월`,
         sales: v.sales,
         profit: v.profit - v.expenses,
       }));
-  }, [sales, items, expenses, costMap]);
+  }, [sales, items, expenses, costMap, year, currentMonth]);
 
   const salesRanking = useMemo(() => {
     const map = new Map<string, number>();
