@@ -31,15 +31,27 @@ const cardSx = {
   border: '1px solid rgba(0,0,0,0.04)',
 };
 
+const selectSx = {
+  fontWeight: 700,
+  fontSize: '1.1rem',
+  color: '#1a1a1b',
+  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#dee2e6' },
+  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#adb5bd' },
+  minWidth: 100,
+};
+
 export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
+  const [month, setMonth] = useState<number | null>(null);
   const yearOptions = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
   const { costMap } = useProductProfits(currentStore?.id ?? null);
-  const { loading, totalSales, totalExpenses, totalProfit, monthlyChart, salesRanking, currentMonth } = useDashboard(
-    currentStore?.id ?? null, year, costMap
+  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking } = useDashboard(
+    currentStore?.id ?? null, year, costMap, month
   );
+
+  const periodLabel = month ? `${year}년 ${month}월` : `${year}년`;
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -53,22 +65,29 @@ export default function DashboardPage() {
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
               size="small"
-              sx={{
-                fontWeight: 700,
-                fontSize: '1.1rem',
-                color: '#1a1a1b',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: '#dee2e6' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#adb5bd' },
-                minWidth: 100,
-              }}
+              sx={selectSx}
             >
               {yearOptions.map((y) => (
                 <MenuItem key={y} value={y}>{y}년</MenuItem>
               ))}
             </Select>
+            <Select
+              value={month ?? 0}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setMonth(v === 0 ? null : v);
+              }}
+              size="small"
+              sx={selectSx}
+            >
+              <MenuItem value={0}>전체</MenuItem>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <MenuItem key={m} value={m}>{m}월</MenuItem>
+              ))}
+            </Select>
           </Box>
           <Typography sx={{ fontSize: '0.85rem', color: '#868e96', mt: 0.5 }}>
-            {year}년 {currentStore?.name || ''} 운영 현황
+            {periodLabel} {currentStore?.name || ''} 운영 현황
           </Typography>
         </Box>
 
@@ -102,58 +121,46 @@ export default function DashboardPage() {
 
         {/* 지출 + 순이익 */}
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.5, mb: 2.5 }}>
-          {/* 지출 */}
           <Paper sx={cardSx}>
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>지출</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <Box>
-                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{year}년 총 지출</Typography>
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e03131', letterSpacing: '-0.02em' }}>
-                  {loading ? '-' : formatNumber(totalExpenses.yearly)}
-                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-                </Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{currentMonth}월 지출</Typography>
-                <Typography sx={{ fontSize: '1.3rem', fontWeight: 700, color: '#e03131', letterSpacing: '-0.02em' }}>
-                  {loading ? '-' : formatNumber(totalExpenses.monthly)}
-                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-                </Typography>
-              </Box>
+            <Box>
+              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 지출</Typography>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e03131', letterSpacing: '-0.02em' }}>
+                {loading ? '-' : formatNumber(totalExpenses)}
+                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+              </Typography>
             </Box>
           </Paper>
 
-          {/* 순이익 */}
           <Paper sx={cardSx}>
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>순이익</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <Box>
-                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{year}년 총 순이익</Typography>
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit.yearly >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
-                  {loading ? '-' : formatNumber(totalProfit.yearly)}
-                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-                </Typography>
-              </Box>
-              <Box>
-                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{currentMonth}월 순이익</Typography>
-                <Typography sx={{ fontSize: '1.3rem', fontWeight: 700, color: totalProfit.monthly >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
-                  {loading ? '-' : formatNumber(totalProfit.monthly)}
-                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-                </Typography>
-              </Box>
+            <Box>
+              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 순이익</Typography>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
+                {loading ? '-' : formatNumber(totalProfit)}
+                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+              </Typography>
             </Box>
           </Paper>
         </Box>
 
-        {/* 월별 매출/순이익 차트 */}
+        {/* 차트 */}
         {!loading && (
           <Paper sx={{ ...cardSx, mb: 2.5 }}>
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>월별 매출 · 순이익</Typography>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>
+              {month ? `${month}월 일별 매출 · 지출 · 순이익` : '월별 매출 · 지출 · 순이익'}
+            </Typography>
             <Box sx={{ width: '100%', height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyChart} barCategoryGap="25%">
+                <BarChart data={chartData} barCategoryGap="25%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f3f5" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#868e96' }} axisLine={{ stroke: '#f1f3f5' }} tickLine={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: month ? 10 : 12, fill: '#868e96' }}
+                    axisLine={{ stroke: '#f1f3f5' }}
+                    tickLine={false}
+                    interval={month ? 'preserveStartEnd' : 0}
+                  />
                   <YAxis
                     tick={{ fontSize: 11, fill: '#adb5bd' }}
                     axisLine={false}
@@ -166,20 +173,21 @@ export default function DashboardPage() {
                     width={52}
                   />
                   <Tooltip
-                    itemSorter={(item) => (item.dataKey === 'sales' ? 0 : 1)}
+                    itemSorter={(item) => (item.dataKey === 'sales' ? 0 : item.dataKey === 'expenses' ? 1 : 2)}
                     formatter={(value, name) => [
                       `${Number(value).toLocaleString('ko-KR')}원`,
-                      name === 'sales' ? '매출' : '순이익',
+                      name === 'sales' ? '매출' : name === 'expenses' ? '지출' : '순이익',
                     ]}
                     labelStyle={{ fontSize: 12, color: '#495057', fontWeight: 600 }}
                     contentStyle={{ borderRadius: 8, border: '1px solid #f1f3f5', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', fontSize: 13 }}
                   />
                   <Legend
-                    formatter={(value: string) => (value === 'sales' ? '매출' : '순이익')}
+                    formatter={(value: string) => (value === 'sales' ? '매출' : value === 'expenses' ? '지출' : '순이익')}
                     wrapperStyle={{ fontSize: 12, color: '#868e96' }}
                   />
                   <ReferenceLine y={0} stroke="#dee2e6" />
                   <Bar dataKey="sales" fill="#a5d8ff" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" fill="#e03131" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="profit" fill="#1864ab" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

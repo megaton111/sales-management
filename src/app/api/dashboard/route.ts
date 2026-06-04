@@ -8,7 +8,8 @@ async function fetchAll(
   filters: { storeId: string; dateColumn: string; startDate: string; endDate: string }
 ) {
   const PAGE_SIZE = 1000;
-  let allData: Record<string, unknown>[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let allData: any[] = [];
   let from = 0;
 
   while (true) {
