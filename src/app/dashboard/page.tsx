@@ -119,8 +119,8 @@ export default function DashboardPage() {
           </Box>
         </Paper>
 
-        {/* 지출 + 순이익 */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2.5, mb: 2.5 }}>
+        {/* 지출 + 순이익 + 마진율 */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2.5, mb: 2.5 }}>
           <Paper sx={cardSx}>
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>지출</Typography>
             <Box>
@@ -139,6 +139,17 @@ export default function DashboardPage() {
               <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
                 {loading ? '-' : formatNumber(totalProfit)}
                 <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+              </Typography>
+            </Box>
+          </Paper>
+
+          <Paper sx={cardSx}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>마진율</Typography>
+            <Box>
+              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 마진율</Typography>
+              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
+                {loading || totalSales.total === 0 ? '-' : (totalProfit / totalSales.total * 100).toFixed(1)}
+                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>%</Typography>
               </Typography>
             </Box>
           </Paper>
