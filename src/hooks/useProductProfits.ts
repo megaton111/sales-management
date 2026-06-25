@@ -48,10 +48,10 @@ export default function useProductProfits(storeId: number | null) {
       (mappingRes.data || []).forEach((m: { coupang_product_name: string; product_sale_name: string }) => {
         const cost = saleCostMap[m.product_sale_name];
         if (cost) {
-          map.set(m.coupang_product_name, cost);
+          const cleanKey = m.coupang_product_name.trim().replace(/\s+/g, ' ');
+          map.set(cleanKey, cost);
         }
       });
-
       setCostMap(map);
       setLoading(false);
     };

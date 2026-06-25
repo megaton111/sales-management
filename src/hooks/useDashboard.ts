@@ -100,7 +100,7 @@ export default function useDashboard(
   const totalProfit = useMemo(() => {
     let total = 0;
     for (const item of filteredItems) {
-      const cost = costMap.get(item.product_name);
+      const cost = costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
       total += cost
         ? calcItemProfit(item.sale_amount, item.quantity, cost)
         : item.unit_profit * item.quantity;
@@ -122,7 +122,7 @@ export default function useDashboard(
       }
       for (const item of filteredItems) {
         const d = Number(item.sale_date.slice(8, 10));
-        const cost = costMap.get(item.product_name);
+        const cost = costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
         const entry = dayMap.get(d)!;
         entry.profit += cost
           ? calcItemProfit(item.sale_amount, item.quantity, cost)
@@ -152,7 +152,7 @@ export default function useDashboard(
     }
     for (const item of items) {
       const m = Number(item.sale_date.slice(5, 7));
-      const cost = costMap.get(item.product_name);
+      const cost = costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
       const entry = monthMap.get(m)!;
       entry.profit += cost
         ? calcItemProfit(item.sale_amount, item.quantity, cost)

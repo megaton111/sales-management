@@ -81,7 +81,7 @@ export default function useMonthlySales(
         const day = new Date(item.sale_date).getDate();
         const existing = map.get(day);
         if (!existing) continue;
-        const cost = costMap.get(item.product_name);
+        const cost = costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
         const itemProfit = cost
           ? calcItemProfit(item.sale_amount, item.quantity, cost)
           : item.unit_profit * item.quantity;

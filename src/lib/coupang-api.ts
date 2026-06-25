@@ -256,7 +256,7 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
         if (item.canceled) continue;
         const saleAmount = item.orderPrice - item.coupangDiscount;
         daily.totalSalePrice += saleAmount;
-        addItem(daily, item.vendorItemId, item.sellerProductName, item.vendorItemName, item.shippingCount, saleAmount);
+        addItem(daily, item.vendorItemId, item.sellerProductName.trim().replace(/\s+/g, ' '), item.vendorItemName, item.shippingCount, saleAmount);
       }
     }
   }
@@ -290,7 +290,8 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
       const unitPrice = Math.floor(Number(item.unitSalesPrice));
       const totalPrice = unitPrice * item.salesQuantity;
       daily.totalSalePrice += totalPrice;
-      addItem(daily, item.vendorItemId, item.productName, item.productName, item.salesQuantity, totalPrice);
+      const cleanName = item.productName.trim().replace(/\s+/g, ' ');
+      addItem(daily, item.vendorItemId, cleanName, cleanName, item.salesQuantity, totalPrice);
     }
   }
 

@@ -117,7 +117,7 @@ export default function ProductsPage() {
       supabase.from("products").select("id, name").eq("store_id", storeId).order("created_at", { ascending: true }),
       supabase.from("product_sales").select("*").eq("store_id", storeId),
       fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
-      supabase.from("daily_sales_items").select("product_name").eq("store_id", storeId),
+      supabase.from("daily_sales_items").select("product_name").eq("store_id", storeId).limit(10000),
     ]);
 
     const uniqueCoupangNames = [...new Set(((coupangNamesRes as { data: { product_name: string }[] }).data || []).map((r: { product_name: string }) => r.product_name))];

@@ -202,7 +202,7 @@ export default function SalesPage() {
         </TableHead>
         <TableBody>
           {tableItems.map((item) => {
-            const cost = costMap.get(item.product_name);
+            const cost = costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
               : item.unit_profit * item.quantity;
