@@ -105,6 +105,8 @@ export default function ProductsPage() {
   const [memoValues, setMemoValues] = useState<Record<string, string>>({});
   const [bundleDialog, setBundleDialog] = useState<{ open: boolean; baseName: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
   const [bundleMultiplier, setBundleMultiplier] = useState(2);
+  const [channelDialog, setChannelDialog] = useState<{ open: boolean; baseName: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
+  const [channelType, setChannelType] = useState("판매자배송");
   const [costHistory, setCostHistory] = useState<{ open: boolean; productName: string; multiplier: number; items: { created_at: string; average_unit_cost: number }[]; currentAvg: number } | null>(null);
 
   const fetchData = async () => {
@@ -112,16 +114,28 @@ export default function ProductsPage() {
     setLoading(true);
     const supabase = createClient();
     const storeId = currentStore.id;
-    const [{ data: avgData }, { data: productsData }, { data: salesData }, mappingRes, coupangNamesRes] = await Promise.all([
+    const [{ data: avgData }, { data: productsData }, { data: salesData }, mappingRes] = await Promise.all([
       supabase.from("product_averages").select("*").eq("store_id", storeId),
       supabase.from("products").select("id, name").eq("store_id", storeId).order("created_at", { ascending: true }),
       supabase.from("product_sales").select("*").eq("store_id", storeId),
       fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
-      supabase.from("daily_sales_items").select("product_name").eq("store_id", storeId).limit(10000),
     ]);
 
-    const uniqueCoupangNames = [...new Set(((coupangNamesRes as { data: { product_name: string }[] }).data || []).map((r: { product_name: string }) => r.product_name))];
-    setCoupangNames(uniqueCoupangNames);
+    const allProductNames = new Set<string>();
+    const pageSize = 1000;
+    let from = 0;
+    while (true) {
+      const { data } = await supabase
+        .from("daily_sales_items")
+        .select("product_name")
+        .eq("store_id", storeId)
+        .range(from, from + pageSize - 1);
+      if (!data || data.length === 0) break;
+      data.forEach((r: { product_name: string }) => allProductNames.add(r.product_name));
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    setCoupangNames([...allProductNames]);
 
     const mappingMap: Record<string, string[]> = {};
     ((mappingRes as { data: { coupang_product_name: string; product_sale_name: string }[] }).data || []).forEach((m) => {
@@ -186,7 +200,7 @@ export default function ProductsPage() {
           profit: 0,
           margin_rate: 0,
           memo: saved.memo ?? "",
-          base_name: saved.base_name ?? name,
+          base_name: name,
           multiplier: saved.multiplier ?? 1,
         };
         sale.profit = calcProfit(sale);
@@ -214,9 +228,10 @@ export default function ProductsPage() {
         });
       }
 
-      // 배수 상품 (base_name이 이 상품인 것들)
+      // 하위 상품: 배수 상품 (multiplier>1) + 채널 변형 (이름이 "상품명 [채널]" 패턴)
+      // 매입가관리에 독립 등록된 상품(productIdMap)은 하위로 표시하지 않음
       Object.values(savedSales)
-        .filter((s) => s.base_name === name && s.multiplier > 1)
+        .filter((s) => s.base_name === name && (s.multiplier > 1 || s.name.startsWith(`${name} [`)) && !productIdMap[s.name])
         .sort((a, b) => a.multiplier - b.multiplier)
         .forEach((s) => {
           const sale: ProductSale = {
@@ -427,6 +442,42 @@ export default function ProductsPage() {
     fetchData();
   };
 
+  const handleChannelAdd = async () => {
+    if (!channelDialog || !currentStore) return;
+    const { baseName, baseUnitCost, baseBarcordFee, baseBoxFee } = channelDialog;
+    const variantName = `${baseName} [${channelType}]`;
+    const storeId = currentStore.id;
+
+    const supabase = createClient();
+    const { error } = await supabase.from("product_sales").upsert({
+      name: variantName,
+      store_id: storeId,
+      base_name: baseName,
+      multiplier: 1,
+      category: channelType,
+      selling_price: 0,
+      market_commission: 0,
+      unit_cost: baseUnitCost,
+      warehouse_fee: 0,
+      shipping_fee: 0,
+      barcode_fee: baseBarcordFee,
+      box_fee: baseBoxFee,
+      other_fee: 0,
+      memo: "",
+      profit: 0,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      alert(`추가 실패: ${error.message}`);
+      return;
+    }
+
+    setChannelDialog(null);
+    setChannelType("판매자배송");
+    fetchData();
+  };
+
   const handleCostHistoryOpen = async (sale: ProductSale) => {
     if (!currentStore) return;
     const baseName = sale.base_name || sale.name;
@@ -513,23 +564,36 @@ export default function ProductsPage() {
             <TableBody>
               {sales.map((sale) => {
                 const isBundle = sale.multiplier > 1;
+                const isChannelVariant = !isBundle && sale.base_name !== null && sale.base_name !== sale.name;
+                const isSubRow = isBundle || isChannelVariant;
                 return (
-                  <TableRow key={sale.name} sx={{ "&:hover": { backgroundColor: "#f8f9fa" }, backgroundColor: isBundle ? "#fafbfc" : "transparent" }}>
+                  <TableRow key={sale.name} sx={{ "&:hover": { backgroundColor: "#f8f9fa" }, backgroundColor: isSubRow ? "#fafbfc" : "transparent" }}>
                     <TableCell sx={{ textAlign: "center", borderBottom: "1px solid #f1f3f5" }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
                         <IconButton size="small" onClick={() => handleMappingOpen(sale.name)} sx={{ p: 0.25 }}>
                           <LinkIcon sx={{ fontSize: 16, color: mappings[sale.name]?.length ? "#343a40" : "#dee2e6" }} />
                         </IconButton>
-                        {!isBundle && (
-                          <IconButton
-                            size="small"
-                            onClick={() => setBundleDialog({ open: true, baseName: sale.name, baseUnitCost: sale.unit_cost, baseBarcordFee: sale.barcode_fee, baseBoxFee: sale.box_fee })}
-                            sx={{ p: 0.25 }}
-                          >
-                            <AddCircleOutlineIcon sx={{ fontSize: 16, color: "#adb5bd" }} />
-                          </IconButton>
+                        {!isSubRow && (
+                          <>
+                            <IconButton
+                              size="small"
+                              onClick={() => setBundleDialog({ open: true, baseName: sale.name, baseUnitCost: sale.unit_cost, baseBarcordFee: sale.barcode_fee, baseBoxFee: sale.box_fee })}
+                              sx={{ p: 0.25 }}
+                              title="배수 상품 추가"
+                            >
+                              <AddCircleOutlineIcon sx={{ fontSize: 16, color: "#adb5bd" }} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => setChannelDialog({ open: true, baseName: sale.name, baseUnitCost: sale.unit_cost, baseBarcordFee: sale.barcode_fee, baseBoxFee: sale.box_fee })}
+                              sx={{ p: 0.25 }}
+                              title="채널 변형 추가"
+                            >
+                              <Typography sx={{ fontSize: 14, color: "#adb5bd", fontWeight: 700, lineHeight: 1 }}>CH</Typography>
+                            </IconButton>
+                          </>
                         )}
-                        {isBundle && (
+                        {isSubRow && (
                           <IconButton size="small" onClick={() => handleBundleDelete(sale.name)} sx={{ p: 0.25 }}>
                             <DeleteOutlineIcon sx={{ fontSize: 16, color: "#adb5bd" }} />
                           </IconButton>
@@ -541,7 +605,7 @@ export default function ProductsPage() {
                       let display: string;
                       if (col.numeric) {
                         display = fmt(raw as number) + (col.suffix || "");
-                      } else if (col.key === "name" && isBundle) {
+                      } else if (col.key === "name" && isSubRow) {
                         display = `  ↳ ${raw as string}`;
                       } else {
                         display = (raw as string) || "-";
@@ -554,7 +618,7 @@ export default function ProductsPage() {
                           sx={{
                             fontSize: "0.85rem",
                             whiteSpace: "nowrap",
-                            color: isBundle && col.key === "name" ? "#868e96" : "#1a1a1b",
+                            color: isSubRow && col.key === "name" ? "#868e96" : "#1a1a1b",
                             fontWeight: col.highlight ? 700 : 400,
                             borderBottom: "1px solid #f1f3f5",
                             backgroundColor: col.highlight ? "#f8f9fa" : "transparent",
@@ -725,6 +789,42 @@ export default function ProductsPage() {
         <DialogActions>
           <Button onClick={() => setBundleDialog(null)} size="small">취소</Button>
           <Button onClick={handleBundleAdd} variant="contained" size="small">추가</Button>
+        </DialogActions>
+      </Dialog>
+      {/* 채널 변형 추가 다이얼로그 */}
+      <Dialog
+        open={channelDialog?.open ?? false}
+        onClose={() => setChannelDialog(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: "1rem" }}>
+          채널 변형 추가 — {channelDialog?.baseName}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5, color: "#495057" }}>채널 선택</Typography>
+              <Select
+                size="small"
+                value={channelType}
+                onChange={(e) => setChannelType(e.target.value)}
+                fullWidth
+              >
+                <MenuItem value="판매자배송">판매자배송</MenuItem>
+                <MenuItem value="로켓그로스">로켓그로스</MenuItem>
+              </Select>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              상품명: {channelDialog?.baseName} [{channelType}]<br />
+              원가: {fmt(channelDialog?.baseUnitCost ?? 0)}원 (기본 상품과 동일)<br />
+              판매가, 수수료, 배송비 등은 추가 후 직접 입력해주세요.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChannelDialog(null)} size="small">취소</Button>
+          <Button onClick={handleChannelAdd} variant="contained" size="small">추가</Button>
         </DialogActions>
       </Dialog>
       {/* 평균 원가 변동 히스토리 다이얼로그 */}
