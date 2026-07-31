@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -12,6 +12,7 @@ import Grid from "@mui/material/Grid";
 import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
+import CircularProgress from "@mui/material/CircularProgress";
 import { createClient } from "@/lib/supabase-browser";
 import { generateProductId } from "@/utils/generateId";
 import { useStore } from "@/contexts/StoreContext";
@@ -67,6 +68,11 @@ function fmt(v: number) {
   return v.toLocaleString("ko-KR");
 }
 
+function str(v: number | null | undefined) {
+  if (v == null || v === 0) return "";
+  return String(v);
+}
+
 export default function CostRegisterPage() {
   return (
     <Suspense>
@@ -79,14 +85,53 @@ function CostRegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { currentStore } = useStore();
+  const editId = searchParams.get("id") || "";
   const prefillName = searchParams.get("name") || "";
+  const isEdit = !!editId;
+
   const [form, setForm] = useState<FormData>({ ...initialForm, name: prefillName });
+  const [loadingEdit, setLoadingEdit] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
     message: "",
     severity: "success",
   });
+
+  useEffect(() => {
+    if (!isEdit) return;
+    const fetchProduct = async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("products").select("*").eq("id", editId).single();
+      if (error || !data) {
+        setSnackbar({ open: true, message: "데이터를 불러오지 못했습니다.", severity: "error" });
+        setLoadingEdit(false);
+        return;
+      }
+      setForm({
+        name: data.name,
+        country: data.country as "US" | "CN",
+        exchangeRate: str(data.exchange_rate),
+        quantity: str(data.quantity),
+        unitPriceForeign: str(data.unit_price_foreign),
+        purchaseFeeForeign: str(data.purchase_fee_foreign),
+        localShippingForeign: str(data.local_shipping_foreign),
+        firstPaymentDate: data.first_payment_date || "",
+        inspectionFee: str(data.inspection_fee),
+        customsClearanceFee: str(data.customs_clearance_fee),
+        secondPaymentDate: data.second_payment_date || "",
+        internationalShipping: str(data.international_shipping),
+        originCertificateFee: str(data.origin_certificate_fee),
+        customsDuty: str(data.customs_duty),
+        vat: str(data.vat),
+        customsBrokerFee: str(data.customs_broker_fee),
+        domesticShipping: str(data.domestic_shipping),
+        thirdPaymentDate: data.third_payment_date || "",
+      });
+      setLoadingEdit(false);
+    };
+    fetchProduct();
+  }, [editId, isEdit]);
 
   const set = (field: keyof FormData) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -140,11 +185,9 @@ function CostRegisterForm() {
     setSaving(true);
     try {
       const supabase = createClient();
-      const id = generateProductId();
       const storeId = currentStore.id;
 
-      const { error } = await supabase.from("products").insert({
-        id,
+      const payload = {
         store_id: storeId,
         name: form.name,
         country: form.country,
@@ -173,9 +216,16 @@ function CostRegisterForm() {
         third_payment_date: form.thirdPaymentDate || null,
         total_cost: calc.totalCost,
         unit_cost: calc.unitCost,
-      });
+      };
 
-      if (error) throw error;
+      if (isEdit) {
+        const { error } = await supabase.from("products").update(payload).eq("id", editId);
+        if (error) throw error;
+      } else {
+        const id = generateProductId();
+        const { error } = await supabase.from("products").insert({ id, ...payload });
+        if (error) throw error;
+      }
 
       const { data: allEntries } = await supabase
         .from("products")
@@ -233,7 +283,7 @@ function CostRegisterForm() {
         }).eq("name", bs.name).eq("store_id", storeId);
       }
 
-      setSnackbar({ open: true, message: `저장 완료 (ID: ${id})`, severity: "success" });
+      setSnackbar({ open: true, message: isEdit ? "수정 완료" : `저장 완료 (ID: ${editId || ""})`, severity: "success" });
       setTimeout(() => router.push("/cost"), 1000);
     } catch (err) {
       setSnackbar({ open: true, message: `저장 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`, severity: "error" });
@@ -242,11 +292,21 @@ function CostRegisterForm() {
     }
   };
 
+  if (loadingEdit) {
+    return (
+      <Container maxWidth="md">
+        <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="md">
       <Box sx={{ py: 4 }}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
-          <Typography variant="h5">상품 등록</Typography>
+          <Typography variant="h5">{isEdit ? "매입 수정" : "상품 등록"}</Typography>
           <Button variant="outlined" size="small" onClick={() => router.push("/cost")}>
             목록으로
           </Button>
@@ -260,7 +320,7 @@ function CostRegisterForm() {
             </Typography>
           </Grid>
           <Grid size={6}>
-            <TextField fullWidth label="상품명" value={form.name} onChange={set("name")} size="small" />
+            <TextField fullWidth label="상품명" value={form.name} onChange={set("name")} size="small" disabled={isEdit} />
           </Grid>
           <Grid size={3}>
             <TextField fullWidth select label="국가" value={form.country} onChange={set("country")} size="small">
@@ -422,7 +482,7 @@ function CostRegisterForm() {
           <Grid size={12}>
             <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
               <Button variant="contained" onClick={handleSave} disabled={saving}>
-                {saving ? "저장 중..." : "저장"}
+                {saving ? "저장 중..." : isEdit ? "수정 완료" : "저장"}
               </Button>
             </Box>
           </Grid>

@@ -195,6 +195,7 @@ export default function CostPage() {
           <Table size="small" sx={{ minWidth: 2000 }}>
             <TableHead>
               <TableRow>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#adb5bd", borderBottom: "1px solid #f1f3f5", whiteSpace: "nowrap" }} />
                 {columns.map((col) => (
                   <TableCell
                     key={col.key}
@@ -216,6 +217,16 @@ export default function CostPage() {
             <TableBody>
               {filteredProducts.map((product) => (
                 <TableRow key={product.id} sx={{ "&:hover": { backgroundColor: "#f8f9fa" } }}>
+                  <TableCell sx={{ borderBottom: "1px solid #f1f3f5", whiteSpace: "nowrap" }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => router.push(`/cost/register?id=${product.id}`)}
+                      sx={{ fontSize: "0.75rem", borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}
+                    >
+                      수정
+                    </Button>
+                  </TableCell>
                   {columns.map((col) => {
                     const raw = product[col.key as keyof Product];
                     let display: string;
