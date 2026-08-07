@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -24,6 +24,9 @@ import MenuItem from '@mui/material/MenuItem';
 import SyncIcon from '@mui/icons-material/Sync';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import Collapse from '@mui/material/Collapse';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useStore } from '@/contexts/StoreContext';
 import useMonthlySales from '@/hooks/useMonthlySales';
 import useDailySalesDetail from '@/hooks/useDailySalesDetail';
@@ -167,6 +170,268 @@ export default function SalesPage() {
   const selectedDay = selectedDate ? new Date(selectedDate).getDate() : null;
   const isMonthly = !!detailLabel;
 
+  const [expandedOrderKey, setExpandedOrderKey] = useState<string | null>(null);
+  const [orderDetailsMap, setOrderDetailsMap] = useState<Record<string, { orderId: number; paidAt: string; status: string; quantity: number; salesPrice: number; orderPrice: number; discountPrice: number; coupangDiscount: number; saleAmount: number }[]>>({});
+  const [orderLoadingKey, setOrderLoadingKey] = useState<string | null>(null);
+
+  const [expandedRgKey, setExpandedRgKey] = useState<string | null>(null);
+  const [rgOrderDetailsMap, setRgOrderDetailsMap] = useState<Record<string, { orderId: number; paidAt: string; quantity: number; unitSalesPrice: number; saleAmount: number }[]>>({});
+  const [rgOrderLoadingKey, setRgOrderLoadingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExpandedOrderKey(null);
+    setOrderDetailsMap({});
+    setExpandedRgKey(null);
+    setRgOrderDetailsMap({});
+  }, [selectedDate]);
+
+  const STATUS_LABELS: Record<string, string> = {
+    ACCEPT: '결제완료',
+    INSTRUCT: '상품준비중',
+    DEPARTURE: '배송준비중',
+    DELIVERING: '배송중',
+    FINAL_DELIVERY: '배송완료',
+    NONE_TRACKING: '배송완료',
+  };
+
+  const handleProductRowClick = async (item: typeof items[0]) => {
+    const key = String(item.vendor_item_id);
+    if (expandedOrderKey === key) {
+      setExpandedOrderKey(null);
+      return;
+    }
+    setExpandedOrderKey(key);
+    if (orderDetailsMap[key]) return;
+    setOrderLoadingKey(key);
+    try {
+      const res = await fetch(`/api/sales/orders?date=${selectedDate}&vendorItemId=${key}`);
+      const json = await res.json();
+      if (res.ok) setOrderDetailsMap(prev => ({ ...prev, [key]: json.orders }));
+    } finally {
+      setOrderLoadingKey(null);
+    }
+  };
+
+  const handleRgProductRowClick = async (item: typeof items[0]) => {
+    const key = String(item.vendor_item_id);
+    if (expandedRgKey === key) {
+      setExpandedRgKey(null);
+      return;
+    }
+    setExpandedRgKey(key);
+    if (rgOrderDetailsMap[key]) return;
+    setRgOrderLoadingKey(key);
+    try {
+      const res = await fetch(`/api/sales/rg-orders?date=${selectedDate}&vendorItemId=${key}`);
+      const json = await res.json();
+      if (res.ok) setRgOrderDetailsMap(prev => ({ ...prev, [key]: json.orders }));
+    } finally {
+      setRgOrderLoadingKey(null);
+    }
+  };
+
+  const renderRgTable = (tableItems: typeof items) => (
+    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ ...thSx, width: 28, pr: 0 }} />
+            <TableCell sx={thSx}>상품명</TableCell>
+            <TableCell sx={thSx}>옵션명</TableCell>
+            <TableCell align="right" sx={thSx}>판매건수</TableCell>
+            <TableCell align="right" sx={thSx}>매출금액</TableCell>
+            <TableCell align="right" sx={thSx}>순이익</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {tableItems.map((item) => {
+            const cost = costMap.get(`${item.product_name.trim().replace(/\s+/g, ' ')}|${item.channel}`) ?? costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
+            const itemProfit = cost
+              ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
+              : item.unit_profit * item.quantity;
+            const key = String(item.vendor_item_id);
+            const isExpanded = expandedRgKey === key;
+            const isLoadingThis = rgOrderLoadingKey === key;
+            const orders = rgOrderDetailsMap[key];
+            return (
+              <Fragment key={key}>
+                <TableRow onClick={() => handleRgProductRowClick(item)} sx={{ cursor: 'pointer', '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                  <TableCell sx={{ ...tdSx, pr: 0, width: 28 }}>
+                    {isExpanded
+                      ? <KeyboardArrowUpIcon sx={{ fontSize: 16, color: '#adb5bd', verticalAlign: 'middle' }} />
+                      : <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#adb5bd', verticalAlign: 'middle' }} />}
+                  </TableCell>
+                  <TableCell sx={tdSx}>{item.product_name}</TableCell>
+                  <TableCell sx={tdSx}>{item.vendor_item_name?.includes(',') ? item.vendor_item_name.split(',').slice(1).join(',').trim() : ''}</TableCell>
+                  <TableCell align="right" sx={tdSx}>{formatNumber(item.quantity)}건</TableCell>
+                  <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.sale_amount)}원</TableCell>
+                  <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: itemProfit > 0 ? '#2b8a3e' : '#adb5bd' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} sx={{ p: 0, borderBottom: isExpanded ? '1px solid #f1f3f5' : 'none' }}>
+                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                      <Box sx={{ p: 1.5, backgroundColor: '#f8f9fa' }}>
+                        {isLoadingThis ? (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', py: 1.5 }}>
+                            <CircularProgress size={16} sx={{ color: '#adb5bd' }} />
+                          </Box>
+                        ) : !orders || orders.length === 0 ? (
+                          <Typography sx={{ fontSize: '0.78rem', color: '#adb5bd', textAlign: 'center', py: 1 }}>주문 데이터 없음</Typography>
+                        ) : (
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>주문번호</TableCell>
+                                <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>결제일시</TableCell>
+                                <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>수량</TableCell>
+                                <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>단위판매가</TableCell>
+                                <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>판매금액</TableCell>
+                                <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>마진</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {orders.map((order) => {
+                                const kstDate = new Date(Number(order.paidAt) + 9 * 60 * 60 * 1000);
+                                const paidAtStr = kstDate.toISOString().slice(5, 16).replace('T', ' ');
+                                const orderMargin = cost
+                                  ? Math.round(order.saleAmount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * order.quantity
+                                  : null;
+                                return (
+                                  <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' } }}>
+                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{order.orderId}</TableCell>
+                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{paidAtStr}</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{order.quantity}건</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{formatNumber(order.unitSalesPrice)}원</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600 }}>{formatNumber(order.saleAmount)}원</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
+                                      {orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+
+  const renderMpTable = (tableItems: typeof items) => (
+    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ ...thSx, width: 28, pr: 0 }} />
+            <TableCell sx={thSx}>상품명</TableCell>
+            <TableCell sx={thSx}>옵션명</TableCell>
+            <TableCell align="right" sx={thSx}>판매건수</TableCell>
+            <TableCell align="right" sx={thSx}>매출금액</TableCell>
+            <TableCell align="right" sx={thSx}>순이익</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {tableItems.map((item) => {
+            const cost = costMap.get(`${item.product_name.trim().replace(/\s+/g, ' ')}|${item.channel}`) ?? costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
+            const itemProfit = cost
+              ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
+              : item.unit_profit * item.quantity;
+            const key = String(item.vendor_item_id);
+            const isExpanded = expandedOrderKey === key;
+            const isLoadingThis = orderLoadingKey === key;
+            const orders = orderDetailsMap[key];
+            return (
+              <Fragment key={key}>
+                <TableRow onClick={() => handleProductRowClick(item)} sx={{ cursor: 'pointer', '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                  <TableCell sx={{ ...tdSx, pr: 0, width: 28 }}>
+                    {isExpanded
+                      ? <KeyboardArrowUpIcon sx={{ fontSize: 16, color: '#adb5bd', verticalAlign: 'middle' }} />
+                      : <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#adb5bd', verticalAlign: 'middle' }} />}
+                  </TableCell>
+                  <TableCell sx={tdSx}>{item.product_name}</TableCell>
+                  <TableCell sx={tdSx}>{item.vendor_item_name?.includes(',') ? item.vendor_item_name.split(',').slice(1).join(',').trim() : ''}</TableCell>
+                  <TableCell align="right" sx={tdSx}>{formatNumber(item.quantity)}건</TableCell>
+                  <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.sale_amount)}원</TableCell>
+                  <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: itemProfit > 0 ? '#2b8a3e' : '#adb5bd' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} sx={{ p: 0, borderBottom: isExpanded ? '1px solid #f1f3f5' : 'none' }}>
+                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                      <Box sx={{ p: 1.5, backgroundColor: '#f8f9fa' }}>
+                        {isLoadingThis ? (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', py: 1.5 }}>
+                            <CircularProgress size={16} sx={{ color: '#adb5bd' }} />
+                          </Box>
+                        ) : !orders || orders.length === 0 ? (
+                          <Typography sx={{ fontSize: '0.78rem', color: '#adb5bd', textAlign: 'center', py: 1 }}>주문 데이터 없음</Typography>
+                        ) : (
+                          <Box sx={{ overflowX: 'auto' }}>
+                            <Table size="small" sx={{ minWidth: 720 }}>
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>주문번호</TableCell>
+                                  <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>결제일시</TableCell>
+                                  <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>상태</TableCell>
+                                  <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>수량</TableCell>
+                                  <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>판매가</TableCell>
+                                  <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>주문가</TableCell>
+                                  <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>할인금액</TableCell>
+                                  <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>쿠팡할인</TableCell>
+                                  <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>실판매금액</TableCell>
+                                  <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>마진</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {orders.map((order) => {
+                                  const orderMargin = cost
+                                    ? Math.round(order.saleAmount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * order.quantity
+                                    : null;
+                                  return (
+                                    <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' } }}>
+                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{order.orderId}</TableCell>
+                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>
+                                        {order.paidAt ? order.paidAt.slice(5, 16).replace('T', ' ') : '-'}
+                                      </TableCell>
+                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>
+                                        <Box component="span" sx={{ px: 0.8, py: 0.2, borderRadius: 1, backgroundColor: '#e9ecef', color: '#495057', fontSize: '0.7rem' }}>
+                                          {STATUS_LABELS[order.status] ?? order.status}
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{order.quantity}건</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{formatNumber(order.salesPrice)}원</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{formatNumber(order.orderPrice)}원</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#868e96' }}>{order.discountPrice > 0 ? `-${formatNumber(order.discountPrice)}원` : '-'}</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#868e96' }}>{order.coupangDiscount > 0 ? `-${formatNumber(order.coupangDiscount)}원` : '-'}</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600 }}>{formatNumber(order.saleAmount)}원</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
+                                        {orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </Box>
+                        )}
+                      </Box>
+                    </Collapse>
+                  </TableCell>
+                </TableRow>
+              </Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+
   const mergeByVendorItem = (list: typeof items) => {
     const merged = new Map<number, typeof items[0]>();
     for (const item of list) {
@@ -202,7 +467,7 @@ export default function SalesPage() {
         </TableHead>
         <TableBody>
           {tableItems.map((item) => {
-            const cost = costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
+            const cost = costMap.get(`${item.product_name.trim().replace(/\s+/g, ' ')}|${item.channel}`) ?? costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
               : item.unit_profit * item.quantity;
@@ -443,7 +708,7 @@ export default function SalesPage() {
                         <Typography sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.85rem', color: '#495057' }}>
                           {detailLabel ? `${detailLabel} 판매자배송` : `${month}월 ${selectedDay}일 판매자배송`}
                         </Typography>
-                        {renderItemTable(mpItems)}
+                        {isMonthly ? renderItemTable(mpItems) : renderMpTable(mpItems)}
                       </Box>
                     )}
                     {rgItems.length > 0 && (
@@ -451,7 +716,7 @@ export default function SalesPage() {
                         <Typography sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.85rem', color: '#495057' }}>
                           {detailLabel ? `${detailLabel} 로켓그로스` : `${month}월 ${selectedDay}일 로켓그로스`}
                         </Typography>
-                        {renderItemTable(rgItems)}
+                        {isMonthly ? renderItemTable(rgItems) : renderRgTable(rgItems)}
                       </Box>
                     )}
                   </Box>

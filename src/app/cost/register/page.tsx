@@ -283,6 +283,25 @@ function CostRegisterForm() {
         }).eq("name", bs.name).eq("store_id", storeId);
       }
 
+      // 채널 변형 원가 연쇄 업데이트 (판매자배송, 로켓그로스 등 multiplier=1인 변형)
+      const { data: channelVariants } = await supabase
+        .from("product_sales")
+        .select("name, selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee")
+        .eq("base_name", form.name)
+        .eq("store_id", storeId)
+        .eq("multiplier", 1)
+        .neq("name", form.name);
+
+      for (const cv of channelVariants || []) {
+        const supplyPrice = Math.round(cv.selling_price / 1.1);
+        const cvProfit = supplyPrice - cv.market_commission - avgCost - cv.warehouse_fee - cv.shipping_fee - cv.barcode_fee - cv.box_fee - (cv.other_fee || 0);
+        await supabase.from("product_sales").update({
+          unit_cost: avgCost,
+          profit: cvProfit,
+          updated_at: new Date().toISOString(),
+        }).eq("name", cv.name).eq("store_id", storeId);
+      }
+
       setSnackbar({ open: true, message: isEdit ? "수정 완료" : `저장 완료 (ID: ${editId || ""})`, severity: "success" });
       setTimeout(() => router.push("/cost"), 1000);
     } catch (err) {

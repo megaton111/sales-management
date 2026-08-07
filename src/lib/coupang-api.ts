@@ -114,7 +114,7 @@ async function fetchOrderSheetsByStatus(date: string, status: string): Promise<O
   return allData;
 }
 
-async function fetchOrderSheetsByDate(date: string): Promise<OrderSheet[]> {
+export async function fetchOrderSheetsByDate(date: string): Promise<OrderSheet[]> {
   const allOrders: OrderSheet[] = [];
   const seenOrderIds = new Set<number>();
 
@@ -156,7 +156,7 @@ interface RgOrderResponse {
   nextToken?: string;
 }
 
-async function fetchRgOrders(dateFrom: string, dateTo: string): Promise<RgOrder[]> {
+export async function fetchRgOrders(dateFrom: string, dateTo: string): Promise<RgOrder[]> {
   const allData: RgOrder[] = [];
   let nextToken = '';
   let hasMore = true;

@@ -44,12 +44,24 @@ export default function useProductProfits(storeId: number | null) {
         };
       });
 
+      const CHANNEL_LABEL_MAP: Record<string, string> = {
+        '판매자배송': 'marketplace',
+        '로켓그로스': 'rocket_growth',
+      };
+
       const map = new Map<string, ProductCostData>();
       (mappingRes.data || []).forEach((m: { coupang_product_name: string; product_sale_name: string }) => {
         const cost = saleCostMap[m.product_sale_name];
+        const cleanKey = m.coupang_product_name.trim().replace(/\s+/g, ' ');
         if (cost) {
-          const cleanKey = m.coupang_product_name.trim().replace(/\s+/g, ' ');
           map.set(cleanKey, cost);
+        }
+        // 채널 변형이 있으면 채널별 키도 등록 (예: "키|marketplace")
+        for (const [label, channelId] of Object.entries(CHANNEL_LABEL_MAP)) {
+          const variantCost = saleCostMap[`${m.product_sale_name} [${label}]`];
+          if (variantCost) {
+            map.set(`${cleanKey}|${channelId}`, variantCost);
+          }
         }
       });
       setCostMap(map);
