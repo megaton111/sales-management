@@ -25,14 +25,14 @@ export default function useProductProfits(storeId: number | null) {
       const supabase = createClient();
 
       const [{ data: salesData }, mappingRes] = await Promise.all([
-        supabase.from('product_sales').select('name, market_commission, unit_cost, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee, multiplier, base_name').eq('store_id', storeId),
+        supabase.from('product_sales').select('name, selling_price, market_commission, unit_cost, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee, multiplier, base_name').eq('store_id', storeId),
         fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
       ]);
 
       const saleCostMap: Record<string, ProductCostData> = {};
-      (salesData || []).forEach((s: ProductCostData & { name: string }) => {
+      (salesData || []).forEach((s: ProductCostData & { name: string; selling_price: number }) => {
         saleCostMap[s.name] = {
-          market_commission: s.market_commission || 0,
+          market_commission: s.market_commission || Math.round((s.selling_price || 0) * 0.12),
           unit_cost: s.unit_cost || 0,
           warehouse_fee: s.warehouse_fee || 0,
           shipping_fee: s.shipping_fee || 0,
@@ -57,10 +57,14 @@ export default function useProductProfits(storeId: number | null) {
           map.set(cleanKey, cost);
         }
         // 채널 변형이 있으면 채널별 키도 등록 (예: "키|marketplace")
+        // 채널 변형의 수수료가 0이면 베이스 상품 수수료를 상속
         for (const [label, channelId] of Object.entries(CHANNEL_LABEL_MAP)) {
           const variantCost = saleCostMap[`${m.product_sale_name} [${label}]`];
           if (variantCost) {
-            map.set(`${cleanKey}|${channelId}`, variantCost);
+            map.set(`${cleanKey}|${channelId}`, {
+              ...variantCost,
+              market_commission: variantCost.market_commission || (cost?.market_commission ?? 0),
+            });
           }
         }
       });

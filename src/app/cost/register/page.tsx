@@ -13,6 +13,14 @@ import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import Switch from "@mui/material/Switch";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Paper from "@mui/material/Paper";
 import { createClient } from "@/lib/supabase-browser";
 import { generateProductId } from "@/utils/generateId";
 import { useStore } from "@/contexts/StoreContext";
@@ -37,6 +45,17 @@ type FormData = {
   domesticShipping: string;
   thirdPaymentDate: string;
 };
+
+type OptionRow = {
+  size: string;
+  quantity: string;
+  unitPriceForeign: string;
+};
+
+const INITIAL_OPTIONS: OptionRow[] = [
+  { size: "", quantity: "", unitPriceForeign: "" },
+  { size: "", quantity: "", unitPriceForeign: "" },
+];
 
 const initialForm: FormData = {
   name: "",
@@ -90,6 +109,8 @@ function CostRegisterForm() {
   const isEdit = !!editId;
 
   const [form, setForm] = useState<FormData>({ ...initialForm, name: prefillName });
+  const [hasOptions, setHasOptions] = useState(false);
+  const [options, setOptions] = useState<OptionRow[]>(INITIAL_OPTIONS.map((o) => ({ ...o })));
   const [loadingEdit, setLoadingEdit] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
@@ -128,6 +149,19 @@ function CostRegisterForm() {
         domesticShipping: str(data.domestic_shipping),
         thirdPaymentDate: data.third_payment_date || "",
       });
+
+      if (data.has_options) {
+        setHasOptions(true);
+        const { data: optData } = await supabase.from("product_options").select("*").eq("product_id", editId);
+        if (optData && optData.length > 0) {
+          setOptions(optData.map((o: { size: string; quantity: number; unit_price_foreign: number }) => ({
+            size: o.size,
+            quantity: String(o.quantity),
+            unitPriceForeign: String(o.unit_price_foreign),
+          })));
+        }
+      }
+
       setLoadingEdit(false);
     };
     fetchProduct();
@@ -137,49 +171,81 @@ function CostRegisterForm() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  const setOption = (index: number, field: "size" | "quantity" | "unitPriceForeign") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, [field]: e.target.value } : o)));
+  };
+
+  const addOption = () => {
+    setOptions((prev) => [...prev, { size: "", quantity: "", unitPriceForeign: "" }]);
+  };
+
   const currency = form.country === "US" ? "USD" : "CNY";
 
   const calc = useMemo(() => {
     const exchangeRate = num(form.exchangeRate);
-    const quantity = num(form.quantity);
-    const unitPriceForeign = num(form.unitPriceForeign);
-
-    const unitPriceKrw = Math.round(unitPriceForeign * exchangeRate);
-    const totalProductPrice = unitPriceKrw * quantity;
-
     const purchaseFeeForeign = num(form.purchaseFeeForeign);
     const purchaseFeeKrw = Math.round(purchaseFeeForeign * exchangeRate);
     const localShippingForeign = num(form.localShippingForeign);
     const localShippingKrw = Math.round(localShippingForeign * exchangeRate);
-    const firstPayment = totalProductPrice + purchaseFeeKrw + localShippingKrw;
-
     const inspectionFee = num(form.inspectionFee);
     const customsClearanceFee = num(form.customsClearanceFee);
     const secondPayment = inspectionFee + customsClearanceFee;
-
     const internationalShipping = num(form.internationalShipping);
     const originCertificateFee = num(form.originCertificateFee);
     const customsDuty = num(form.customsDuty);
     const vat = num(form.vat);
     const customsBrokerFee = num(form.customsBrokerFee);
     const domesticShipping = num(form.domesticShipping);
-    const thirdPayment =
-      internationalShipping + originCertificateFee + customsDuty + vat + customsBrokerFee + domesticShipping;
+    const thirdPayment = internationalShipping + originCertificateFee + customsDuty + vat + customsBrokerFee + domesticShipping;
 
-    const totalCost = firstPayment + secondPayment + thirdPayment;
-    const unitCost = quantity > 0 ? Math.round(totalCost / quantity) : 0;
+    if (hasOptions) {
+      const totalQuantity = options.reduce((s, o) => s + num(o.quantity), 0);
+      const totalProductPrice = options.reduce((s, o) => s + Math.round(num(o.unitPriceForeign) * exchangeRate) * num(o.quantity), 0);
+      const unitPriceKrw = totalQuantity > 0 ? Math.round(totalProductPrice / totalQuantity) : 0;
+      const firstPayment = totalProductPrice + purchaseFeeKrw + localShippingKrw;
+      const sharedCosts = purchaseFeeKrw + localShippingKrw + secondPayment + thirdPayment;
+      const sharedCostPerUnit = totalQuantity > 0 ? Math.round(sharedCosts / totalQuantity) : 0;
+      const totalCost = totalProductPrice + sharedCosts;
+      const unitCost = totalQuantity > 0 ? Math.round(totalCost / totalQuantity) : 0;
 
-    return { unitPriceKrw, totalProductPrice, purchaseFeeKrw, localShippingKrw, firstPayment, secondPayment, thirdPayment, totalCost, unitCost };
-  }, [form]);
+      const optionCalcs = options.map((o) => {
+        const optQty = num(o.quantity);
+        const optUnitPriceKrw = Math.round(num(o.unitPriceForeign) * exchangeRate);
+        const optUnitCost = optUnitPriceKrw + sharedCostPerUnit;
+        const optTotalCost = optUnitCost * optQty;
+        return { ...o, unitPriceKrw: optUnitPriceKrw, unitCost: optUnitCost, totalCost: optTotalCost };
+      });
+
+      return { unitPriceKrw, totalProductPrice, purchaseFeeKrw, localShippingKrw, firstPayment, secondPayment, thirdPayment, totalCost, unitCost, totalQuantity, sharedCostPerUnit, optionCalcs };
+    } else {
+      const quantity = num(form.quantity);
+      const unitPriceKrw = Math.round(num(form.unitPriceForeign) * exchangeRate);
+      const totalProductPrice = unitPriceKrw * quantity;
+      const firstPayment = totalProductPrice + purchaseFeeKrw + localShippingKrw;
+      const totalCost = firstPayment + secondPayment + thirdPayment;
+      const unitCost = quantity > 0 ? Math.round(totalCost / quantity) : 0;
+
+      return { unitPriceKrw, totalProductPrice, purchaseFeeKrw, localShippingKrw, firstPayment, secondPayment, thirdPayment, totalCost, unitCost, totalQuantity: quantity, sharedCostPerUnit: 0, optionCalcs: [] };
+    }
+  }, [form, hasOptions, options]);
 
   const handleSave = async () => {
     if (!currentStore) {
       setSnackbar({ open: true, message: "스토어를 먼저 선택해주세요.", severity: "error" });
       return;
     }
-    if (!form.name || !form.exchangeRate || !form.quantity || !form.unitPriceForeign) {
-      setSnackbar({ open: true, message: "상품명, 환율, 수량, 상품가를 입력해주세요.", severity: "error" });
-      return;
+
+    if (hasOptions) {
+      const activeOptions = options.filter((o) => num(o.quantity) > 0 && num(o.unitPriceForeign) > 0);
+      if (!form.name || !form.exchangeRate || activeOptions.length === 0) {
+        setSnackbar({ open: true, message: "상품명, 환율, 최소 1개 이상의 옵션(수량+단가)을 입력해주세요.", severity: "error" });
+        return;
+      }
+    } else {
+      if (!form.name || !form.exchangeRate || !form.quantity || !form.unitPriceForeign) {
+        setSnackbar({ open: true, message: "상품명, 환율, 수량, 상품가를 입력해주세요.", severity: "error" });
+        return;
+      }
     }
 
     setSaving(true);
@@ -192,8 +258,9 @@ function CostRegisterForm() {
         name: form.name,
         country: form.country,
         exchange_rate: num(form.exchangeRate),
-        quantity: num(form.quantity),
-        unit_price_foreign: num(form.unitPriceForeign),
+        has_options: hasOptions,
+        quantity: calc.totalQuantity,
+        unit_price_foreign: hasOptions ? 0 : num(form.unitPriceForeign),
         unit_price_krw: calc.unitPriceKrw,
         total_product_price: calc.totalProductPrice,
         purchase_fee_foreign: num(form.purchaseFeeForeign),
@@ -218,12 +285,33 @@ function CostRegisterForm() {
         unit_cost: calc.unitCost,
       };
 
+      let savedId = editId;
+
       if (isEdit) {
         const { error } = await supabase.from("products").update(payload).eq("id", editId);
         if (error) throw error;
+        if (hasOptions) {
+          await supabase.from("product_options").delete().eq("product_id", editId);
+        }
       } else {
-        const id = generateProductId();
-        const { error } = await supabase.from("products").insert({ id, ...payload });
+        savedId = generateProductId();
+        const { error } = await supabase.from("products").insert({ id: savedId, ...payload });
+        if (error) throw error;
+      }
+
+      if (hasOptions) {
+        const optionRows = calc.optionCalcs
+          .filter((o) => num(o.quantity) > 0 && num(o.unitPriceForeign) > 0)
+          .map((o) => ({
+            product_id: savedId,
+            size: o.size,
+            quantity: num(o.quantity),
+            unit_price_foreign: num(o.unitPriceForeign),
+            unit_price_krw: o.unitPriceKrw,
+            unit_cost: o.unitCost,
+            total_cost: o.totalCost,
+          }));
+        const { error } = await supabase.from("product_options").insert(optionRows);
         if (error) throw error;
       }
 
@@ -264,7 +352,6 @@ function CostRegisterForm() {
         }).eq("name", form.name).eq("store_id", storeId);
       }
 
-      // 배수 상품 원가 연쇄 업데이트
       const { data: bundleSales } = await supabase
         .from("product_sales")
         .select("name, multiplier, selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee")
@@ -283,14 +370,14 @@ function CostRegisterForm() {
         }).eq("name", bs.name).eq("store_id", storeId);
       }
 
-      // 채널 변형 원가 연쇄 업데이트 (판매자배송, 로켓그로스 등 multiplier=1인 변형)
       const { data: channelVariants } = await supabase
         .from("product_sales")
         .select("name, selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee")
         .eq("base_name", form.name)
         .eq("store_id", storeId)
         .eq("multiplier", 1)
-        .neq("name", form.name);
+        .neq("name", form.name)
+        .is("option_size", null);
 
       for (const cv of channelVariants || []) {
         const supplyPrice = Math.round(cv.selling_price / 1.1);
@@ -302,7 +389,50 @@ function CostRegisterForm() {
         }).eq("name", cv.name).eq("store_id", storeId);
       }
 
-      setSnackbar({ open: true, message: isEdit ? "수정 완료" : `저장 완료 (ID: ${editId || ""})`, severity: "success" });
+      // 옵션 변형 원가 연쇄 업데이트
+      if (hasOptions) {
+        const { data: allProductIds } = await supabase
+          .from("products")
+          .select("id")
+          .eq("name", form.name)
+          .eq("store_id", storeId);
+
+        const productIds = (allProductIds || []).map((p: { id: string }) => p.id);
+        if (productIds.length > 0) {
+          const { data: allOptData } = await supabase
+            .from("product_options")
+            .select("size, unit_cost")
+            .in("product_id", productIds);
+
+          const sizeCosts: Record<string, number[]> = {};
+          (allOptData || []).forEach((o: { size: string; unit_cost: number }) => {
+            if (!sizeCosts[o.size]) sizeCosts[o.size] = [];
+            sizeCosts[o.size].push(o.unit_cost);
+          });
+
+          for (const [size, costs] of Object.entries(sizeCosts)) {
+            const optAvgCost = Math.round(costs.reduce((a, b) => a + b, 0) / costs.length);
+            const { data: optVariants } = await supabase
+              .from("product_sales")
+              .select("name, selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee")
+              .eq("base_name", form.name)
+              .eq("store_id", storeId)
+              .eq("option_size", size);
+
+            for (const v of optVariants || []) {
+              const supplyPrice = Math.round(v.selling_price / 1.1);
+              const vProfit = supplyPrice - v.market_commission - optAvgCost - v.warehouse_fee - v.shipping_fee - v.barcode_fee - v.box_fee - (v.other_fee || 0);
+              await supabase.from("product_sales").update({
+                unit_cost: optAvgCost,
+                profit: vProfit,
+                updated_at: new Date().toISOString(),
+              }).eq("name", v.name).eq("store_id", storeId);
+            }
+          }
+        }
+      }
+
+      setSnackbar({ open: true, message: isEdit ? "수정 완료" : "저장 완료", severity: "success" });
       setTimeout(() => router.push("/cost"), 1000);
     } catch (err) {
       setSnackbar({ open: true, message: `저장 실패: ${err instanceof Error ? err.message : "알 수 없는 오류"}`, severity: "error" });
@@ -350,25 +480,128 @@ function CostRegisterForm() {
           <Grid size={3}>
             <TextField fullWidth label="환율" value={form.exchangeRate} onChange={set("exchangeRate")} size="small" type="number" />
           </Grid>
-          <Grid size={3}>
-            <TextField fullWidth label="수량" value={form.quantity} onChange={set("quantity")} size="small" type="number" />
-          </Grid>
-          <Grid size={3}>
-            <TextField
-              fullWidth
-              label={`상품가(${currency})`}
-              value={form.unitPriceForeign}
-              onChange={set("unitPriceForeign")}
-              size="small"
-              type="number"
+
+          {/* 옵션 토글 */}
+          <Grid size={12}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={hasOptions}
+                  onChange={(e) => setHasOptions(e.target.checked)}
+                  disabled={isEdit}
+                  size="small"
+                />
+              }
+              label={<Typography variant="body2" color="text.secondary">옵션 있음</Typography>}
             />
           </Grid>
-          <Grid size={3}>
-            <TextField fullWidth label="상품가(원화)" value={fmt(calc.unitPriceKrw)} size="small" slotProps={{ input: { readOnly: true } }} />
-          </Grid>
-          <Grid size={3}>
-            <TextField fullWidth label="총 상품가격" value={fmt(calc.totalProductPrice)} size="small" slotProps={{ input: { readOnly: true } }} />
-          </Grid>
+
+          {/* 단일 상품: 수량 + 단가 */}
+          {!hasOptions && (
+            <>
+              <Grid size={3}>
+                <TextField fullWidth label="수량" value={form.quantity} onChange={set("quantity")} size="small" type="number" />
+              </Grid>
+              <Grid size={3}>
+                <TextField
+                  fullWidth
+                  label={`상품가(${currency})`}
+                  value={form.unitPriceForeign}
+                  onChange={set("unitPriceForeign")}
+                  size="small"
+                  type="number"
+                />
+              </Grid>
+              <Grid size={3}>
+                <TextField fullWidth label="상품가(원화)" value={fmt(calc.unitPriceKrw)} size="small" slotProps={{ input: { readOnly: true } }} />
+              </Grid>
+              <Grid size={3}>
+                <TextField fullWidth label="총 상품가격" value={fmt(calc.totalProductPrice)} size="small" slotProps={{ input: { readOnly: true } }} />
+              </Grid>
+            </>
+          )}
+
+          {/* 옵션 상품: 사이즈별 입력 테이블 */}
+          {hasOptions && (
+            <Grid size={12}>
+              <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
+                      <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#868e96" }}>옵션명</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#868e96" }}>수량</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#868e96" }}>현지단가 ({currency})</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#868e96" }}>원화단가</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#343a40" }}>개당 사입비용</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#343a40" }}>옵션 총원가</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {calc.optionCalcs.map((o, i) => (
+                      <TableRow key={i}>
+                        <TableCell sx={{ width: 120 }}>
+                          <TextField
+                            value={options[i].size}
+                            onChange={setOption(i, "size")}
+                            size="small"
+                            variant="standard"
+                            placeholder="예: XL, 레드"
+                            slotProps={{ input: { sx: { fontSize: "0.85rem" } } }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ width: 100 }}>
+                          <TextField
+                            value={options[i].quantity}
+                            onChange={setOption(i, "quantity")}
+                            size="small"
+                            type="number"
+                            variant="standard"
+                            slotProps={{ input: { sx: { textAlign: "right", fontSize: "0.85rem" } } }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ width: 130 }}>
+                          <TextField
+                            value={options[i].unitPriceForeign}
+                            onChange={setOption(i, "unitPriceForeign")}
+                            size="small"
+                            type="number"
+                            variant="standard"
+                            slotProps={{ input: { sx: { textAlign: "right", fontSize: "0.85rem" } } }}
+                          />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: "0.85rem", color: "#495057" }}>
+                          {num(options[i].unitPriceForeign) > 0 ? `${fmt(o.unitPriceKrw)}원` : "-"}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1a1a1b" }}>
+                          {num(options[i].quantity) > 0 && num(options[i].unitPriceForeign) > 0 ? `${fmt(o.unitCost)}원` : "-"}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: "0.85rem", fontWeight: 700, color: "#1a1a1b" }}>
+                          {num(options[i].quantity) > 0 && num(options[i].unitPriceForeign) > 0 ? `${fmt(o.totalCost)}원` : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow sx={{ backgroundColor: "#f8f9fa" }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem", color: "#495057" }}>합계</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.8rem" }}>{fmt(calc.totalQuantity)}개</TableCell>
+                      <TableCell />
+                      <TableCell />
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.8rem", color: "#1a1a1b" }}>
+                        개당공통비: {fmt(calc.sharedCostPerUnit)}원
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.8rem", color: "#1a1a1b" }}>
+                        {fmt(calc.totalProductPrice)}원
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </Paper>
+              <Box sx={{ mt: 1, display: "flex", justifyContent: "flex-start" }}>
+                <Button size="small" variant="text" onClick={addOption} sx={{ color: "#868e96", fontSize: "0.78rem" }}>
+                  + 옵션 추가
+                </Button>
+              </Box>
+            </Grid>
+          )}
 
           <Grid size={12}>
             <Divider />
@@ -495,7 +728,7 @@ function CostRegisterForm() {
             <TextField fullWidth label="총 비용" value={fmt(calc.totalCost)} size="small" slotProps={{ input: { readOnly: true } }} />
           </Grid>
           <Grid size={6}>
-            <TextField fullWidth label="1개 사입비용" value={fmt(calc.unitCost)} size="small" slotProps={{ input: { readOnly: true } }} />
+            <TextField fullWidth label="평균 사입비용 (개당)" value={fmt(calc.unitCost)} size="small" slotProps={{ input: { readOnly: true } }} />
           </Grid>
 
           <Grid size={12}>

@@ -14,6 +14,7 @@ interface SaleItem {
   sale_date: string;
   channel: string;
   product_name: string;
+  vendor_item_name: string;
   quantity: number;
   unit_profit: number;
   sale_amount: number;
@@ -81,8 +82,10 @@ export default function useMonthlySales(
         const day = new Date(item.sale_date).getDate();
         const existing = map.get(day);
         if (!existing) continue;
-        const nameKey = item.product_name.trim().replace(/\s+/g, ' ');
-        const cost = costMap.get(`${nameKey}|${item.channel}`) ?? costMap.get(nameKey);
+        const pKey = item.product_name.trim().replace(/\s+/g, ' ');
+        const vKey = (item.vendor_item_name || '').trim().replace(/\s+/g, ' ');
+        const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey)
+          ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
         const itemProfit = cost
           ? calcItemProfit(item.sale_amount, item.quantity, cost)
           : item.unit_profit * item.quantity;

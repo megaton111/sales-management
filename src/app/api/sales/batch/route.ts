@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         quantity: item.quantity,
         sale_amount: item.salePrice,
         settlement_amount: 0,
-        unit_profit: profitMap.get(item.productName) ?? 0,
+        unit_profit: profitMap.get(item.vendorItemName) ?? profitMap.get(item.productName) ?? 0,
         sale_type: 'SALE',
       }));
 

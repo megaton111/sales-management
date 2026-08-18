@@ -47,6 +47,7 @@ type ProductSale = {
   memo: string;
   base_name: string | null;
   multiplier: number;
+  option_size: string | null;
 };
 
 type Column = {
@@ -107,6 +108,8 @@ export default function ProductsPage() {
   const [bundleMultiplier, setBundleMultiplier] = useState(2);
   const [channelDialog, setChannelDialog] = useState<{ open: boolean; baseName: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
   const [channelType, setChannelType] = useState("판매자배송");
+  const [optionDialog, setOptionDialog] = useState<{ open: boolean; parentName: string; baseName: string } | null>(null);
+  const [optionInfoMap, setOptionInfoMap] = useState<Record<string, { size: string; avgUnitCost: number }[]>>({});
   const [costHistory, setCostHistory] = useState<{ open: boolean; productName: string; multiplier: number; items: { created_at: string; average_unit_cost: number }[]; currentAvg: number } | null>(null);
 
   const fetchData = async () => {
@@ -116,7 +119,7 @@ export default function ProductsPage() {
     const storeId = currentStore.id;
     const [{ data: avgData }, { data: productsData }, { data: salesData }, mappingRes] = await Promise.all([
       supabase.from("product_averages").select("*").eq("store_id", storeId),
-      supabase.from("products").select("id, name").eq("store_id", storeId).order("created_at", { ascending: true }),
+      supabase.from("products").select("id, name, has_options").eq("store_id", storeId).order("created_at", { ascending: true }),
       supabase.from("product_sales").select("*").eq("store_id", storeId),
       fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
     ]);
@@ -127,11 +130,14 @@ export default function ProductsPage() {
     while (true) {
       const { data } = await supabase
         .from("daily_sales_items")
-        .select("product_name")
+        .select("product_name, vendor_item_name")
         .eq("store_id", storeId)
         .range(from, from + pageSize - 1);
       if (!data || data.length === 0) break;
-      data.forEach((r: { product_name: string }) => allProductNames.add(r.product_name));
+      data.forEach((r: { product_name: string; vendor_item_name: string }) => {
+        allProductNames.add(r.product_name);
+        if (r.vendor_item_name) allProductNames.add(r.vendor_item_name);
+      });
       if (data.length < pageSize) break;
       from += pageSize;
     }
@@ -145,9 +151,38 @@ export default function ProductsPage() {
     setMappings(mappingMap);
 
     const productIdMap: Record<string, string> = {};
-    productsData?.forEach((p: { id: string; name: string }) => {
+    const optionProductIds: string[] = [];
+    const optionProductNameById: Record<string, string> = {};
+    productsData?.forEach((p: { id: string; name: string; has_options: boolean }) => {
       if (!productIdMap[p.name]) productIdMap[p.name] = p.id;
+      if (p.has_options) {
+        optionProductIds.push(p.id);
+        optionProductNameById[p.id] = p.name;
+      }
     });
+
+    const optInfoMap: Record<string, { size: string; avgUnitCost: number }[]> = {};
+    if (optionProductIds.length > 0) {
+      const { data: allOptData } = await supabase
+        .from("product_options")
+        .select("product_id, size, unit_cost")
+        .in("product_id", optionProductIds);
+      const sizeCosts: Record<string, Record<string, number[]>> = {};
+      allOptData?.forEach((o: { product_id: string; size: string; unit_cost: number }) => {
+        const pName = optionProductNameById[o.product_id];
+        if (!pName) return;
+        if (!sizeCosts[pName]) sizeCosts[pName] = {};
+        if (!sizeCosts[pName][o.size]) sizeCosts[pName][o.size] = [];
+        sizeCosts[pName][o.size].push(o.unit_cost);
+      });
+      Object.entries(sizeCosts).forEach(([pName, sizes]) => {
+        optInfoMap[pName] = Object.entries(sizes).map(([size, costs]) => ({
+          size,
+          avgUnitCost: Math.round(costs.reduce((a, b) => a + b, 0) / costs.length),
+        }));
+      });
+    }
+    setOptionInfoMap(optInfoMap);
 
     const avgMap: Record<string, number> = {};
     avgData?.forEach((a: { name: string; average_unit_cost: number }) => {
@@ -169,6 +204,7 @@ export default function ProductsPage() {
       memo: string;
       base_name: string | null;
       multiplier: number;
+      option_size: string | null;
     };
 
     const savedSales: Record<string, SalesRow> = {};
@@ -190,7 +226,7 @@ export default function ProductsPage() {
           category: saved.category,
           selling_price: saved.selling_price,
           supply_price: calcSupplyPrice(saved.selling_price),
-          market_commission: saved.market_commission,
+          market_commission: saved.market_commission || Math.round(saved.selling_price * 0.12),
           unit_cost: saved.unit_cost,
           warehouse_fee: saved.warehouse_fee,
           shipping_fee: saved.shipping_fee,
@@ -202,6 +238,7 @@ export default function ProductsPage() {
           memo: saved.memo ?? "",
           base_name: name,
           multiplier: saved.multiplier ?? 1,
+          option_size: null,
         };
         sale.profit = calcProfit(sale);
         sale.margin_rate = sale.selling_price > 0 ? Math.round((sale.profit / sale.selling_price) * 1000) / 10 : 0;
@@ -225,38 +262,61 @@ export default function ProductsPage() {
           memo: "",
           base_name: name,
           multiplier: 1,
+          option_size: null,
         });
       }
 
-      // 하위 상품: 배수 상품 (multiplier>1) + 채널 변형 (이름이 "상품명 [채널]" 패턴)
-      // 매입가관리에 독립 등록된 상품(productIdMap)은 하위로 표시하지 않음
+      // 하위 상품: 채널 변형 → 채널별 옵션 → 직접 옵션 → 배수 순서
+      const buildSale = (s: typeof savedSales[string]): ProductSale => {
+        const sale: ProductSale = {
+          name: s.name,
+          productId: "",
+          category: s.category,
+          selling_price: s.selling_price,
+          supply_price: calcSupplyPrice(s.selling_price),
+          market_commission: s.market_commission || Math.round(s.selling_price * 0.12),
+          unit_cost: s.unit_cost,
+          warehouse_fee: s.warehouse_fee,
+          shipping_fee: s.shipping_fee,
+          barcode_fee: s.barcode_fee ?? 150,
+          box_fee: s.box_fee ?? 100,
+          other_fee: s.other_fee ?? 0,
+          profit: 0,
+          margin_rate: 0,
+          memo: s.memo ?? "",
+          base_name: s.base_name,
+          multiplier: s.multiplier,
+          option_size: s.option_size ?? null,
+        };
+        sale.profit = calcProfit(sale);
+        sale.margin_rate = sale.selling_price > 0 ? Math.round((sale.profit / sale.selling_price) * 1000) / 10 : 0;
+        return sale;
+      };
+
+      // 1. 채널 변형 (option_size=null, multiplier=1, name≠base)
+      const channelSubs = Object.values(savedSales)
+        .filter((s) => s.base_name === name && s.multiplier === 1 && !s.option_size && s.name !== name && !productIdMap[s.name])
+        .sort((a, b) => a.name.localeCompare(b.name));
+      channelSubs.forEach((cv) => {
+        list.push(buildSale(cv));
+        // 채널 하위 옵션
+        Object.values(savedSales)
+          .filter((s) => s.base_name === name && !!s.option_size && s.name.startsWith(`${cv.name} [`))
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .forEach((s) => list.push(buildSale(s)));
+      });
+
+      // 2. 직접 옵션 (채널 하위가 아닌 옵션)
       Object.values(savedSales)
-        .filter((s) => s.base_name === name && (s.multiplier > 1 || s.name.startsWith(`${name} [`)) && !productIdMap[s.name])
+        .filter((s) => s.base_name === name && !!s.option_size && !channelSubs.some((cv) => s.name.startsWith(`${cv.name} [`)) && !productIdMap[s.name])
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach((s) => list.push(buildSale(s)));
+
+      // 3. 배수 상품
+      Object.values(savedSales)
+        .filter((s) => s.base_name === name && s.multiplier > 1 && !productIdMap[s.name])
         .sort((a, b) => a.multiplier - b.multiplier)
-        .forEach((s) => {
-          const sale: ProductSale = {
-            name: s.name,
-            productId: "",
-            category: s.category,
-            selling_price: s.selling_price,
-            supply_price: calcSupplyPrice(s.selling_price),
-            market_commission: s.market_commission,
-            unit_cost: s.unit_cost,
-            warehouse_fee: s.warehouse_fee,
-            shipping_fee: s.shipping_fee,
-            barcode_fee: s.barcode_fee ?? 150,
-            box_fee: s.box_fee ?? 100,
-            other_fee: s.other_fee ?? 0,
-            profit: 0,
-            margin_rate: 0,
-            memo: s.memo ?? "",
-            base_name: s.base_name,
-            multiplier: s.multiplier,
-          };
-          sale.profit = calcProfit(sale);
-          sale.margin_rate = sale.selling_price > 0 ? Math.round((sale.profit / sale.selling_price) * 1000) / 10 : 0;
-          list.push(sale);
-        });
+        .forEach((s) => list.push(buildSale(s)));
     });
 
     setSales(list);
@@ -478,6 +538,40 @@ export default function ProductsPage() {
     fetchData();
   };
 
+  const handleOptionAdd = async (parentName: string, baseName: string, optionSize: string, unitCost: number) => {
+    if (!currentStore) return;
+    const variantName = `${parentName} [${optionSize}]`;
+    const storeId = currentStore.id;
+    const baseProduct = sales.find((s) => s.name === baseName);
+
+    const supabase = createClient();
+    const { error } = await supabase.from("product_sales").upsert({
+      name: variantName,
+      store_id: storeId,
+      base_name: baseName,
+      option_size: optionSize,
+      multiplier: 1,
+      category: "옵션",
+      selling_price: 0,
+      market_commission: 0,
+      unit_cost: unitCost,
+      warehouse_fee: 0,
+      shipping_fee: 0,
+      barcode_fee: baseProduct?.barcode_fee ?? 150,
+      box_fee: baseProduct?.box_fee ?? 100,
+      other_fee: 0,
+      memo: "",
+      profit: 0,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      alert(`추가 실패: ${error.message}`);
+      return;
+    }
+    fetchData();
+  };
+
   const handleCostHistoryOpen = async (sale: ProductSale) => {
     if (!currentStore) return;
     const baseName = sale.base_name || sale.name;
@@ -564,10 +658,12 @@ export default function ProductsPage() {
             <TableBody>
               {sales.map((sale) => {
                 const isBundle = sale.multiplier > 1;
-                const isChannelVariant = !isBundle && sale.base_name !== null && sale.base_name !== sale.name;
-                const isSubRow = isBundle || isChannelVariant;
+                const isOptionVariant = !isBundle && !!sale.option_size;
+                const isChannelVariant = !isBundle && !isOptionVariant && sale.base_name !== null && sale.base_name !== sale.name;
+                const isDepth2Option = isOptionVariant && (sale.name.match(/\[[^\]]+\]/g) || []).length >= 2;
+                const isSubRow = isBundle || isChannelVariant || isOptionVariant;
                 return (
-                  <TableRow key={sale.name} sx={{ "&:hover": { backgroundColor: "#f8f9fa" }, backgroundColor: isSubRow ? "#fafbfc" : "transparent" }}>
+                  <TableRow key={sale.name} sx={{ "&:hover": { backgroundColor: "#f8f9fa" }, backgroundColor: isDepth2Option ? "#f4f6f8" : isSubRow ? "#fafbfc" : "transparent" }}>
                     <TableCell sx={{ textAlign: "center", borderBottom: "1px solid #f1f3f5" }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
                         <IconButton size="small" onClick={() => handleMappingOpen(sale.name)} sx={{ p: 0.25 }}>
@@ -591,12 +687,34 @@ export default function ProductsPage() {
                             >
                               <Typography sx={{ fontSize: 14, color: "#adb5bd", fontWeight: 700, lineHeight: 1 }}>CH</Typography>
                             </IconButton>
+                            {(optionInfoMap[sale.name]?.length > 0) && (
+                              <IconButton
+                                size="small"
+                                onClick={() => setOptionDialog({ open: true, parentName: sale.name, baseName: sale.name })}
+                                sx={{ p: 0.25 }}
+                                title="직접 옵션 추가"
+                              >
+                                <Typography sx={{ fontSize: 11, color: "#adb5bd", fontWeight: 700, lineHeight: 1 }}>OPT</Typography>
+                              </IconButton>
+                            )}
                           </>
                         )}
                         {isSubRow && (
-                          <IconButton size="small" onClick={() => handleBundleDelete(sale.name)} sx={{ p: 0.25 }}>
-                            <DeleteOutlineIcon sx={{ fontSize: 16, color: "#adb5bd" }} />
-                          </IconButton>
+                          <>
+                            {isChannelVariant && (optionInfoMap[sale.base_name!]?.length > 0) && (
+                              <IconButton
+                                size="small"
+                                onClick={() => setOptionDialog({ open: true, parentName: sale.name, baseName: sale.base_name! })}
+                                sx={{ p: 0.25 }}
+                                title="채널 하위 옵션 추가"
+                              >
+                                <Typography sx={{ fontSize: 11, color: "#adb5bd", fontWeight: 700, lineHeight: 1 }}>OPT</Typography>
+                              </IconButton>
+                            )}
+                            <IconButton size="small" onClick={() => handleBundleDelete(sale.name)} sx={{ p: 0.25 }}>
+                              <DeleteOutlineIcon sx={{ fontSize: 16, color: "#adb5bd" }} />
+                            </IconButton>
+                          </>
                         )}
                       </Box>
                     </TableCell>
@@ -605,8 +723,12 @@ export default function ProductsPage() {
                       let display: string;
                       if (col.numeric) {
                         display = fmt(raw as number) + (col.suffix || "");
+                      } else if (col.key === "name" && isDepth2Option) {
+                        const parts = (raw as string).match(/\[[^\]]+\]/g) || [];
+                        display = `↳ ${parts[parts.length - 1] ?? raw}`;
                       } else if (col.key === "name" && isSubRow) {
-                        display = `  ↳ ${raw as string}`;
+                        const suffix = (raw as string).replace((sale.base_name ?? "") + " ", "").trim();
+                        display = `↳ ${suffix}`;
                       } else {
                         display = (raw as string) || "-";
                       }
@@ -622,6 +744,8 @@ export default function ProductsPage() {
                             fontWeight: col.highlight ? 700 : 400,
                             borderBottom: "1px solid #f1f3f5",
                             backgroundColor: col.highlight ? "#f8f9fa" : "transparent",
+                            ...(col.key === "name" && isDepth2Option ? { pl: 5 } : {}),
+                            ...(col.key === "name" && isSubRow && !isDepth2Option ? { pl: 2 } : {}),
                           }}
                         >
                           <Box
@@ -825,6 +949,45 @@ export default function ProductsPage() {
         <DialogActions>
           <Button onClick={() => setChannelDialog(null)} size="small">취소</Button>
           <Button onClick={handleChannelAdd} variant="contained" size="small">추가</Button>
+        </DialogActions>
+      </Dialog>
+      {/* 옵션 추가 다이얼로그 */}
+      <Dialog
+        open={optionDialog?.open ?? false}
+        onClose={() => setOptionDialog(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: "1rem" }}>
+          옵션 추가 — {optionDialog?.parentName}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+            {optionDialog && (optionInfoMap[optionDialog.baseName] || []).map((opt) => {
+              const variantName = `${optionDialog.parentName} [${opt.size}]`;
+              const alreadyAdded = sales.some((s) => s.name === variantName);
+              return (
+                <Box key={opt.size} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", py: 1, borderBottom: "1px solid #f1f3f5" }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{opt.size}</Typography>
+                    <Typography variant="caption" sx={{ color: "#868e96" }}>평균 사입비용 {fmt(opt.avgUnitCost)}원</Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant={alreadyAdded ? "outlined" : "contained"}
+                    disabled={alreadyAdded}
+                    onClick={() => handleOptionAdd(optionDialog.parentName, optionDialog.baseName, opt.size, opt.avgUnitCost)}
+                    sx={{ minWidth: 60 }}
+                  >
+                    {alreadyAdded ? "추가됨" : "추가"}
+                  </Button>
+                </Box>
+              );
+            })}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOptionDialog(null)} size="small">닫기</Button>
         </DialogActions>
       </Dialog>
       {/* 평균 원가 변동 히스토리 다이얼로그 */}

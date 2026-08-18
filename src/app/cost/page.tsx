@@ -49,7 +49,19 @@ type Product = {
   third_payment_date: string | null;
   total_cost: number;
   unit_cost: number;
+  has_options: boolean;
   created_at: string;
+};
+
+type ProductOption = {
+  id: string;
+  product_id: string;
+  size: string;
+  quantity: number;
+  unit_price_foreign: number;
+  unit_price_krw: number;
+  unit_cost: number;
+  total_cost: number;
 };
 
 function fmt(v: number) {
@@ -94,11 +106,46 @@ const columns: Column[] = [
   { label: "1개 사입비용", key: "unit_cost", numeric: true, highlight: true, suffix: "원" },
 ];
 
+function OptionsRow({ productId, optionsMap }: { productId: string; optionsMap: Record<string, ProductOption[]> }) {
+  const opts = optionsMap[productId] || [];
+  if (opts.length === 0) return null;
+
+  return (
+    <Box sx={{ px: 2, py: 1.5 }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 600, fontSize: "0.72rem", color: "#adb5bd", py: 0.5 }}>옵션명</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.72rem", color: "#adb5bd", py: 0.5 }}>수량</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.72rem", color: "#adb5bd", py: 0.5 }}>현지단가</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.72rem", color: "#adb5bd", py: 0.5 }}>원화단가</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.72rem", color: "#343a40", py: 0.5 }}>개당 사입비용</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.72rem", color: "#343a40", py: 0.5 }}>옵션 총원가</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {opts.map((o) => (
+            <TableRow key={o.id}>
+              <TableCell sx={{ fontSize: "0.82rem", fontWeight: 600, color: "#495057", py: 0.5, width: 60 }}>{o.size}</TableCell>
+              <TableCell align="right" sx={{ fontSize: "0.82rem", color: "#495057", py: 0.5 }}>{fmt(o.quantity)}개</TableCell>
+              <TableCell align="right" sx={{ fontSize: "0.82rem", color: "#495057", py: 0.5 }}>{fmt(o.unit_price_foreign)}</TableCell>
+              <TableCell align="right" sx={{ fontSize: "0.82rem", color: "#495057", py: 0.5 }}>{fmt(o.unit_price_krw)}원</TableCell>
+              <TableCell align="right" sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#1a1a1b", py: 0.5 }}>{fmt(o.unit_cost)}원</TableCell>
+              <TableCell align="right" sx={{ fontSize: "0.82rem", fontWeight: 700, color: "#1a1a1b", py: 0.5 }}>{fmt(o.total_cost)}원</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Box>
+  );
+}
+
 export default function CostPage() {
   const router = useRouter();
   const { currentStore, loading: storeLoading } = useStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [averages, setAverages] = useState<Record<string, number>>({});
+  const [optionsMap, setOptionsMap] = useState<Record<string, ProductOption[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState(0);
 
@@ -112,11 +159,24 @@ export default function CostPage() {
         supabase.from("product_averages").select("*").eq("store_id", currentStore.id),
       ]);
       setProducts(productData || []);
+
       const avgMap: Record<string, number> = {};
       avgData?.forEach((a: { name: string; average_unit_cost: number }) => {
         avgMap[a.name] = a.average_unit_cost;
       });
       setAverages(avgMap);
+
+      const optionProductIds = (productData || []).filter((p: Product) => p.has_options).map((p: Product) => p.id);
+      if (optionProductIds.length > 0) {
+        const { data: optData } = await supabase.from("product_options").select("*").in("product_id", optionProductIds);
+        const map: Record<string, ProductOption[]> = {};
+        optData?.forEach((o: ProductOption) => {
+          if (!map[o.product_id]) map[o.product_id] = [];
+          map[o.product_id].push(o);
+        });
+        setOptionsMap(map);
+      }
+
       setSelectedTab(0);
       setLoading(false);
     };
@@ -135,6 +195,23 @@ export default function CostPage() {
     if (productNames.length === 0) return [];
     return products.filter((p) => p.name === productNames[selectedTab]);
   }, [products, productNames, selectedTab]);
+
+  const currentHasOptions = useMemo(() => filteredProducts.some((p) => p.has_options), [filteredProducts]);
+
+  const optionAverages = useMemo(() => {
+    if (!currentHasOptions) return [];
+    const sizeMap: Record<string, number[]> = {};
+    filteredProducts.filter((p) => p.has_options).forEach((p) => {
+      (optionsMap[p.id] || []).forEach((o) => {
+        if (!sizeMap[o.size]) sizeMap[o.size] = [];
+        sizeMap[o.size].push(o.unit_cost);
+      });
+    });
+    return Object.entries(sizeMap).map(([size, costs]) => ({
+      size,
+      avg: Math.round(costs.reduce((a, b) => a + b, 0) / costs.length),
+    }));
+  }, [filteredProducts, currentHasOptions, optionsMap]);
 
   if (storeLoading || loading) {
     return (
@@ -179,15 +256,24 @@ export default function CostPage() {
         ))}
       </Tabs>
 
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+      <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
         <Typography variant="body2" sx={{ color: "#868e96" }}>
           평균 사입비용
         </Typography>
-        <Typography variant="body1" sx={{ fontWeight: 700, color: "#1a1a1b" }}>
-          {productNames.length > 0 && averages[productNames[selectedTab]] != null
-            ? `${fmt(averages[productNames[selectedTab]])}원`
-            : "-"}
-        </Typography>
+        {currentHasOptions ? (
+          optionAverages.map(({ size, avg }) => (
+            <Box key={size} sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Typography variant="body2" sx={{ color: "#adb5bd", fontSize: "0.78rem" }}>{size}</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "#1a1a1b" }}>{fmt(avg)}원</Typography>
+            </Box>
+          ))
+        ) : (
+          <Typography variant="body1" sx={{ fontWeight: 700, color: "#1a1a1b" }}>
+            {productNames.length > 0 && averages[productNames[selectedTab]] != null
+              ? `${fmt(averages[productNames[selectedTab]])}원`
+              : "-"}
+          </Typography>
+        )}
       </Box>
 
       <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
@@ -260,6 +346,12 @@ export default function CostPage() {
           </Table>
         </TableContainer>
       </Paper>
+
+      {filteredProducts.filter((p) => p.has_options).map((product) => (
+        <Paper key={`${product.id}-opts`} elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 2, overflow: "hidden", mt: 1.5 }}>
+          <OptionsRow productId={product.id} optionsMap={optionsMap} />
+        </Paper>
+      ))}
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1.5 }}>
         <Button
