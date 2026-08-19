@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -22,8 +21,6 @@ import Alert from '@mui/material/Alert';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import SyncIcon from '@mui/icons-material/Sync';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Collapse from '@mui/material/Collapse';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -57,7 +54,7 @@ const tdSx = {
 };
 
 function formatNumber(n: number) {
-  return n.toLocaleString('ko-KR');
+  return Math.trunc(n).toLocaleString('ko-KR');
 }
 
 export default function SalesPage() {
@@ -108,26 +105,12 @@ export default function SalesPage() {
   const days = Array.from({ length: lastDate }, (_, i) => i + 1);
   const monthButtons = Array.from({ length: year === currentYear ? currentMonth : 12 }, (_, i) => i + 1);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const CARD_WIDTH = 168; // 160 minWidth + 8 gap
-
-  const scrollByCard = useCallback((direction: number) => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollBy({ left: direction * CARD_WIDTH, behavior: 'smooth' });
-  }, []);
-
-  // 이번 달: 오늘 날짜를 중앙에, 과거 달: 1일부터
-  useEffect(() => {
-    if (!scrollRef.current || loading) return;
-    const isCurrentMonth = today.getFullYear() === year && today.getMonth() + 1 === month;
-    if (!isCurrentMonth) {
-      scrollRef.current.scrollLeft = 0;
-      return;
-    }
-    const containerWidth = scrollRef.current.clientWidth;
-    const scrollTarget = (today.getDate() - 1) * CARD_WIDTH - containerWidth / 2 + CARD_WIDTH / 2;
-    scrollRef.current.scrollLeft = Math.max(0, scrollTarget);
-  }, [loading, month, year]);
+  const firstDayOfWeek = new Date(year, month - 1, 1).getDay();
+  const weekLabels = ['일', '월', '화', '수', '목', '금', '토'];
+  const calendarCells: (number | null)[] = [
+    ...Array.from({ length: firstDayOfWeek }, () => null),
+    ...days,
+  ];
 
   const handleChannelClick = (day: number, channel: string) => {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -616,83 +599,77 @@ export default function SalesPage() {
       </Box>
     </Container>
 
-    {/* 일별 매출 가로 스크롤 — 버튼은 카드 영역 바로 옆 */}
-    <Container maxWidth="lg" sx={{ position: 'relative', my: 2 }}>
-      <IconButton onClick={() => scrollByCard(-1)} size="small" sx={{ position: 'absolute', left: -36, top: '50%', transform: 'translateY(-50%)', zIndex: 2, border: '1px solid #dee2e6', borderRadius: 1.5, p: 0.5, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', '&:hover': { backgroundColor: '#f8f9fa' } }}>
-        <ChevronLeftIcon sx={{ fontSize: 18, color: '#495057' }} />
-      </IconButton>
-      <Box ref={scrollRef} sx={{ overflowX: 'auto', pb: 1, scrollbarWidth: 'thin', '&::-webkit-scrollbar': { height: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: '#dee2e6', borderRadius: 3 } }}>
-        <Box sx={{ display: 'flex', gap: 1, minWidth: 'max-content' }}>
-            {days.map((day) => {
-              const daySales = dailySalesMap.get(day);
-              const mpAmount = daySales?.marketplace ?? 0;
-              const rgAmount = daySales?.rocketGrowth ?? 0;
-              const mpProfit = daySales?.marketplaceProfit ?? 0;
-              const rgProfit = daySales?.rocketGrowthProfit ?? 0;
-              const totalAmount = mpAmount + rgAmount;
-              const totalDayProfit = mpProfit + rgProfit;
-              const isSelectedDay = day === selectedDay;
-              const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
-
-              return (
-                <Paper
-                  key={day}
-                  elevation={0}
-                  onClick={() => handleChannelClick(day, 'all')}
-                  sx={{
-                    p: 2,
-                    minWidth: 160,
-                    cursor: 'pointer',
-                    borderRadius: 2,
-                    border: isSelectedDay ? '1.5px solid #343a40' : isToday ? '1px solid #228be6' : '1px solid rgba(0,0,0,0.04)',
-                    backgroundColor: isSelectedDay ? '#f8f9fa' : isToday ? '#e7f5ff' : '#fff',
-                    '&:hover': { boxShadow: '0 2px 6px rgba(0,0,0,0.06)' },
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: '#495057', mb: 1 }}>{day}일</Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                      <Typography sx={{ fontSize: '0.75rem', color: '#868e96' }}>판매자</Typography>
-                      <Typography sx={{ fontSize: '0.75rem', color: '#495057' }}>{formatNumber(mpAmount)}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                      <Typography sx={{ fontSize: '0.75rem', color: '#868e96' }}>로켓</Typography>
-                      <Typography sx={{ fontSize: '0.75rem', color: '#495057' }}>{formatNumber(rgAmount)}</Typography>
-                    </Box>
-                    <Box sx={{ borderTop: '1px solid #f1f3f5', mt: 0.3, pt: 0.5, display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                      <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#1a1a1b' }}>합계</Typography>
-                      <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#1a1a1b' }}>{formatNumber(totalAmount)}</Typography>
-                    </Box>
-                    {totalDayProfit !== 0 && (() => {
-                      const prevSales = dailySalesMap.get(day - 1);
-                      const prevProfit = prevSales ? (prevSales.marketplaceProfit ?? 0) + (prevSales.rocketGrowthProfit ?? 0) : 0;
-                      const pctChange = prevProfit !== 0 ? ((totalDayProfit - prevProfit) / Math.abs(prevProfit)) * 100 : 0;
-                      const arrow = pctChange > 0 ? '▲' : pctChange < 0 ? '▼' : '';
-                      const changeColor = pctChange > 0 ? '#e03131' : pctChange < 0 ? '#1971c2' : '#868e96';
-                      return (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 0.5 }}>
-                          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#2b8a3e' }}>이익</Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-                            {arrow && (
-                              <Typography sx={{ fontSize: '0.6rem', fontWeight: 600, color: changeColor }}>
-                                {arrow}{Math.abs(Math.round(pctChange))}%
-                              </Typography>
-                            )}
-                            <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#2b8a3e' }}>{formatNumber(totalDayProfit)}</Typography>
-                          </Box>
-                        </Box>
-                      );
-                    })()}
-                  </Box>
-                </Paper>
-              );
-            })}
-          </Box>
+    {/* 달력 UI */}
+    <Container maxWidth="lg" sx={{ my: 2 }}>
+      <Paper elevation={0} sx={{ p: 2, backgroundColor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        {/* 요일 헤더 */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 0.5 }}>
+          {weekLabels.map((label, i) => (
+            <Box key={label} sx={{ textAlign: 'center', py: 0.8, fontSize: '0.72rem', fontWeight: 600, color: i === 0 ? '#e03131' : i === 6 ? '#1971c2' : '#adb5bd' }}>
+              {label}
+            </Box>
+          ))}
         </Box>
-      <IconButton onClick={() => scrollByCard(1)} size="small" sx={{ position: 'absolute', right: -36, top: '50%', transform: 'translateY(-50%)', zIndex: 2, border: '1px solid #dee2e6', borderRadius: 1.5, p: 0.5, backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', '&:hover': { backgroundColor: '#f8f9fa' } }}>
-        <ChevronRightIcon sx={{ fontSize: 18, color: '#495057' }} />
-      </IconButton>
+        {/* 날짜 셀 */}
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5 }}>
+          {calendarCells.map((day, idx) => {
+            if (!day) return <Box key={`empty-${idx}`} />;
+            const daySales = dailySalesMap.get(day);
+            const mpAmount = daySales?.marketplace ?? 0;
+            const rgAmount = daySales?.rocketGrowth ?? 0;
+            const mpProfit = daySales?.marketplaceProfit ?? 0;
+            const rgProfit = daySales?.rocketGrowthProfit ?? 0;
+            const totalAmount = mpAmount + rgAmount;
+            const totalDayProfit = mpProfit + rgProfit;
+            const isSelectedDay = day === selectedDay;
+            const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
+            const isFuture = new Date(year, month - 1, day) > today;
+            const dayOfWeek = (firstDayOfWeek + day - 1) % 7;
+
+            return (
+              <Paper
+                key={day}
+                elevation={0}
+                onClick={() => !isFuture && handleChannelClick(day, 'all')}
+                sx={{
+                  p: 1,
+                  minHeight: 96,
+                  cursor: isFuture ? 'default' : 'pointer',
+                  borderRadius: 2,
+                  border: isSelectedDay ? '1.5px solid #343a40' : isToday ? '1px solid #228be6' : '1px solid rgba(0,0,0,0.06)',
+                  backgroundColor: isSelectedDay ? '#f8f9fa' : isToday ? '#e7f5ff' : '#fff',
+                  opacity: isFuture ? 0.35 : 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.3,
+                  transition: 'all 0.15s',
+                  '&:hover': !isFuture ? { boxShadow: '0 2px 6px rgba(0,0,0,0.06)' } : {},
+                }}
+              >
+                <Typography sx={{
+                  fontWeight: isToday ? 700 : 500,
+                  fontSize: '0.78rem',
+                  color: isToday ? '#228be6' : dayOfWeek === 0 ? '#e03131' : dayOfWeek === 6 ? '#1971c2' : '#495057',
+                  mb: 0.2,
+                }}>
+                  {day}
+                </Typography>
+                {[
+                  { label: '판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false },
+                  { label: '로켓', bg: '#4dabf7', value: rgAmount, color: '#495057', bold: false },
+                  { label: '매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true },
+                  { label: '순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true },
+                ].map(({ label, bg, value, color, bold }) => (
+                  <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: bg, borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
+                    <Typography sx={{ fontSize: '0.63rem', fontWeight: bold ? 600 : 400, color, lineHeight: 1.4 }}>{formatNumber(value)}</Typography>
+                  </Box>
+                ))}
+              </Paper>
+            );
+          })}
+        </Box>
+      </Paper>
     </Container>
 
     <Container maxWidth="lg">
