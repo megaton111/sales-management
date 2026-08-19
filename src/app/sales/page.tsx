@@ -478,9 +478,9 @@ export default function SalesPage() {
   return (
     <>
     <Container maxWidth="lg" sx={{ pt: 3, pb: 1 }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {/* 헤더 + 월 선택 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Select
             value={year}
             onChange={(e) => { setYear(Number(e.target.value)); setMonth(1); clearDetail(); }}
@@ -578,7 +578,7 @@ export default function SalesPage() {
 
         {/* 전날 매출 */}
         {yesterdayDay && !loading && (
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
             {[
               { label: '어제 매출', value: ydMp + ydRg, color: '#1a1a1b' },
               { label: '어제 판매자배송', value: ydMp, color: '#1a1a1b' },
@@ -600,7 +600,7 @@ export default function SalesPage() {
     </Container>
 
     {/* 달력 UI */}
-    <Container maxWidth="lg" sx={{ my: 2 }}>
+    <Container maxWidth="lg" sx={{ mb: 1 }}>
       <Paper elevation={0} sx={{ p: 2, backgroundColor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         {/* 요일 헤더 */}
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 0.5 }}>
@@ -672,7 +672,7 @@ export default function SalesPage() {
       </Paper>
     </Container>
 
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" sx={{ pb: 4 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         {/* 상품 상세 리스트 */}
         <Box>
