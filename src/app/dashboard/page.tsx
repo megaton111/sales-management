@@ -56,8 +56,8 @@ export default function DashboardPage() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* 헤더 */}
-        <Box sx={{ mb: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
               대시보드
             </Typography>
@@ -92,9 +92,9 @@ export default function DashboardPage() {
         </Box>
 
         {/* 매출 섹션 */}
-        <Paper sx={{ ...cardSx, mb: 2.5 }}>
+        <Paper sx={{ ...cardSx, mb: 1 }}>
           <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>매출 현황</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>총 매출</Typography>
               <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
@@ -120,7 +120,7 @@ export default function DashboardPage() {
         </Paper>
 
         {/* 지출 + 순이익 + 마진율 */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2.5, mb: 2.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mb: 1 }}>
           <Paper sx={cardSx}>
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>지출</Typography>
             <Box>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
 
         {/* 차트 */}
         {!loading && (
-          <Paper sx={{ ...cardSx, mb: 2.5 }}>
+          <Paper sx={{ ...cardSx, mb: 1 }}>
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>
               {month ? `${month}월 일별 매출 · 지출 · 순이익` : '월별 매출 · 지출 · 순이익'}
             </Typography>
