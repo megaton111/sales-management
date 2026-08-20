@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -61,6 +61,12 @@ export default function ExpensesPage() {
   const [year] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
   const { currentStore } = useStore();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const m = Number(params.get('month'));
+    if (m >= 1 && m <= 12) setMonth(m);
+  }, []);
 
   const { rows, loading, totalAmount, totalByType, addExpense, updateExpense, deleteExpense } = useExpenses(
     currentStore?.id ?? null, year, month
