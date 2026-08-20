@@ -12,7 +12,7 @@ import Grid from "@mui/material/Grid";
 import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
-import CircularProgress from "@mui/material/CircularProgress";
+import Skeleton from "@mui/material/Skeleton";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Table from "@mui/material/Table";
@@ -444,8 +444,33 @@ function CostRegisterForm() {
   if (loadingEdit) {
     return (
       <Container maxWidth="md">
-        <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>
-          <CircularProgress />
+        <Box sx={{ py: 4 }}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+            <Skeleton variant="rounded" width={120} height={32} sx={{ borderRadius: 1 }} />
+            <Skeleton variant="rounded" width={80} height={30} sx={{ borderRadius: 2 }} />
+          </Box>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Skeleton variant="rounded" width={100} height={16} sx={{ borderRadius: 1 }} />
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} variant="rounded" width="100%" height={40} sx={{ borderRadius: 1 }} />
+              ))}
+            </Box>
+            <Skeleton variant="rounded" width="100%" height={1} />
+            <Skeleton variant="rounded" width={100} height={16} sx={{ borderRadius: 1 }} />
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} variant="rounded" width="100%" height={40} sx={{ borderRadius: 1 }} />
+              ))}
+            </Box>
+            <Skeleton variant="rounded" width="100%" height={1} />
+            <Skeleton variant="rounded" width={100} height={16} sx={{ borderRadius: 1 }} />
+            <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} variant="rounded" width="100%" height={40} sx={{ borderRadius: 1 }} />
+              ))}
+            </Box>
+          </Box>
         </Box>
       </Container>
     );

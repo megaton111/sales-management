@@ -10,7 +10,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
-import CircularProgress from "@mui/material/CircularProgress";
+import Skeleton from "@mui/material/Skeleton";
 import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
 import Dialog from "@mui/material/Dialog";
@@ -603,11 +603,34 @@ export default function ProductsPage() {
 
   if (storeLoading || loading) {
     return (
-      <Container maxWidth="lg">
-        <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ px: 3, py: 3 }}>
+        <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  {Array.from({ length: 15 }).map((_, i) => (
+                    <TableCell key={i} sx={{ borderBottom: "1px solid #f1f3f5", py: 1.2 }}>
+                      <Skeleton variant="rounded" width={60} height={14} sx={{ borderRadius: 1 }} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 15 }).map((_, j) => (
+                      <TableCell key={j} sx={{ borderBottom: "1px solid #f1f3f5", py: 1.5 }}>
+                        <Skeleton variant="rounded" width={j === 0 ? 40 : j === 1 ? 120 : 70} height={16} sx={{ borderRadius: 1 }} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Box>
     );
   }
 

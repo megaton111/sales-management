@@ -14,7 +14,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
-import CircularProgress from "@mui/material/CircularProgress";
+import Skeleton from "@mui/material/Skeleton";
 import Container from "@mui/material/Container";
 import { createClient } from "@/lib/supabase-browser";
 import { useStore } from "@/contexts/StoreContext";
@@ -215,11 +215,42 @@ export default function CostPage() {
 
   if (storeLoading || loading) {
     return (
-      <Container maxWidth="lg">
-        <Box sx={{ py: 8, display: "flex", justifyContent: "center" }}>
-          <CircularProgress />
+      <Box sx={{ px: 3, py: 3 }}>
+        <Box sx={{ mb: 2 }}>
+          <Skeleton variant="rounded" width={80} height={30} sx={{ borderRadius: 2 }} />
         </Box>
-      </Container>
+        <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} variant="rounded" width={80} height={32} sx={{ borderRadius: 1 }} />
+          ))}
+        </Box>
+        <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
+          <TableContainer>
+            <Table size="small" sx={{ minWidth: 2000 }}>
+              <TableHead>
+                <TableRow>
+                  {Array.from({ length: 27 }).map((_, i) => (
+                    <TableCell key={i} sx={{ borderBottom: "1px solid #f1f3f5", py: 1.2 }}>
+                      <Skeleton variant="rounded" width={55} height={14} sx={{ borderRadius: 1 }} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 27 }).map((_, j) => (
+                      <TableCell key={j} sx={{ borderBottom: "1px solid #f1f3f5", py: 1.5 }}>
+                        <Skeleton variant="rounded" width={j === 0 ? 40 : 70} height={16} sx={{ borderRadius: 1 }} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Box>
     );
   }
 

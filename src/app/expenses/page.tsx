@@ -24,6 +24,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Skeleton from '@mui/material/Skeleton';
 import { useStore } from '@/contexts/StoreContext';
 import useExpenses, { EXPENSE_TYPES } from '@/hooks/useExpenses';
 
@@ -160,10 +161,14 @@ export default function ExpensesPage() {
         {/* 총 지출 */}
         <Paper sx={cardSx}>
           <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>{month}월 총 지출</Typography>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#e03131', letterSpacing: '-0.02em', mb: 1.5 }}>
-            {loading ? '-' : formatNumber(totalAmount)}
-            <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-          </Typography>
+          {loading ? (
+            <Skeleton variant="rounded" width={160} height={28} sx={{ borderRadius: 1, mb: 1.5 }} />
+          ) : (
+            <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#e03131', letterSpacing: '-0.02em', mb: 1.5 }}>
+              {formatNumber(totalAmount)}
+              <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+            </Typography>
+          )}
           {totalAmount > 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {EXPENSE_TYPES.map((type) => {
@@ -209,7 +214,18 @@ export default function ExpensesPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rows.map((row) => (
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={90} height={18} sx={{ borderRadius: 1 }} /></TableCell>
+                      <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={100} height={18} sx={{ borderRadius: 1 }} /></TableCell>
+                      <TableCell align="right" sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={80} height={18} sx={{ borderRadius: 1, ml: 'auto' }} /></TableCell>
+                      <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width="60%" height={18} sx={{ borderRadius: 1 }} /></TableCell>
+                      <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }} />
+                    </TableRow>
+                  ))
+                ) : null}
+                {!loading && rows.map((row) => (
                   editId === row.id ? (
                     <TableRow key={row.id} sx={{ backgroundColor: '#f8f9fa' }}>
                       <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f3f5' }}>

@@ -14,6 +14,7 @@ import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Skeleton from '@mui/material/Skeleton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useProductProfits from '@/hooks/useProductProfits';
@@ -97,24 +98,36 @@ export default function DashboardPage() {
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>총 매출</Typography>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
-                {loading ? '-' : formatNumber(totalSales.total)}
-                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+              ) : (
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
+                  {formatNumber(totalSales.total)}
+                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+                </Typography>
+              )}
             </Box>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>판매자배송</Typography>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
-                {loading ? '-' : formatNumber(totalSales.marketplace)}
-                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+              ) : (
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
+                  {formatNumber(totalSales.marketplace)}
+                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+                </Typography>
+              )}
             </Box>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>로켓그로스</Typography>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
-                {loading ? '-' : formatNumber(totalSales.rocketGrowth)}
-                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+              ) : (
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
+                  {formatNumber(totalSales.rocketGrowth)}
+                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+                </Typography>
+              )}
             </Box>
           </Box>
         </Paper>
@@ -125,10 +138,14 @@ export default function DashboardPage() {
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>지출</Typography>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 지출</Typography>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e03131', letterSpacing: '-0.02em' }}>
-                {loading ? '-' : formatNumber(totalExpenses)}
-                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+              ) : (
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e03131', letterSpacing: '-0.02em' }}>
+                  {formatNumber(totalExpenses)}
+                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+                </Typography>
+              )}
             </Box>
           </Paper>
 
@@ -136,10 +153,14 @@ export default function DashboardPage() {
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>순이익</Typography>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 순이익</Typography>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
-                {loading ? '-' : formatNumber(totalProfit)}
-                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+              ) : (
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
+                  {formatNumber(totalProfit)}
+                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+                </Typography>
+              )}
             </Box>
           </Paper>
 
@@ -147,20 +168,26 @@ export default function DashboardPage() {
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>마진율</Typography>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 마진율</Typography>
-              <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
-                {loading || totalSales.total === 0 ? '-' : (totalProfit / totalSales.total * 100).toFixed(1)}
-                <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>%</Typography>
-              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width={100} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+              ) : (
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
+                  {totalSales.total === 0 ? '-' : (totalProfit / totalSales.total * 100).toFixed(1)}
+                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>%</Typography>
+                </Typography>
+              )}
             </Box>
           </Paper>
         </Box>
 
         {/* 차트 */}
-        {!loading && (
-          <Paper sx={{ ...cardSx, mb: 1 }}>
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>
-              {month ? `${month}월 일별 매출 · 지출 · 순이익` : '월별 매출 · 지출 · 순이익'}
-            </Typography>
+        <Paper sx={{ ...cardSx, mb: 1 }}>
+          <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>
+            {month ? `${month}월 일별 매출 · 지출 · 순이익` : '월별 매출 · 지출 · 순이익'}
+          </Typography>
+          {loading ? (
+            <Skeleton variant="rounded" width="100%" height={320} sx={{ borderRadius: 2 }} />
+          ) : (
             <Box sx={{ width: '100%', height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} barCategoryGap="25%">
@@ -203,8 +230,8 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </Box>
-          </Paper>
-        )}
+          )}
+        </Paper>
 
         {/* 판매 순위 */}
         <Paper sx={cardSx}>
@@ -219,7 +246,21 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {salesRanking.length === 0 && !loading ? (
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
+                        <Skeleton variant="rounded" width={24} height={24} sx={{ borderRadius: 1 }} />
+                      </TableCell>
+                      <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
+                        <Skeleton variant="rounded" width="70%" height={16} sx={{ borderRadius: 1 }} />
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
+                        <Skeleton variant="rounded" width={60} height={16} sx={{ borderRadius: 1, ml: 'auto' }} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : salesRanking.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={3} sx={{ textAlign: 'center', py: 5, color: '#adb5bd', borderBottom: 'none' }}>
                       판매 데이터가 없습니다
