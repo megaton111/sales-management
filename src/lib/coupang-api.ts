@@ -320,4 +320,69 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
   return dailyMap;
 }
 
-export type { OrderSheet, OrderItem, RgOrder, RgOrderItem, ChannelDailySaleData };
+// ========== 로켓그로스 재고 API ==========
+
+interface RgInventoryItem {
+  vendorId: string;
+  vendorItemId: number;
+  externalSkuId: number;
+  inventoryDetails: {
+    totalOrderableQuantity: number;
+  };
+  salesCountMap: {
+    SALES_COUNT_LAST_THIRTY_DAYS: number;
+  };
+}
+
+interface RgInventoryResponse {
+  code: number;
+  message: string;
+  data: RgInventoryItem[];
+  nextToken?: string;
+}
+
+export async function fetchRgInventory(): Promise<RgInventoryItem[]> {
+  const allData: RgInventoryItem[] = [];
+  const seenIds = new Set<number>();
+  let nextToken = '';
+  let hasMore = true;
+
+  const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${VENDOR_ID}/rg/inventory/summaries`;
+
+  while (hasMore) {
+    const query = nextToken ? `nextToken=${nextToken}` : '';
+    const authorization = generateHmacSignature('GET', path, query);
+
+    const res = await fetchWithRetry(`${BASE_URL}${path}${query ? `?${query}` : ''}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': authorization,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`쿠팡 로켓그로스 재고 API 오류 (${res.status}): ${errorText}`);
+    }
+
+    const json: RgInventoryResponse = await res.json();
+    for (const item of json.data || []) {
+      if (!seenIds.has(item.vendorItemId)) {
+        seenIds.add(item.vendorItemId);
+        allData.push(item);
+      }
+    }
+
+    if (json.nextToken && json.nextToken !== '') {
+      nextToken = json.nextToken;
+      await sleep(300);
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
+}
+
+export type { OrderSheet, OrderItem, RgOrder, RgOrderItem, ChannelDailySaleData, RgInventoryItem };

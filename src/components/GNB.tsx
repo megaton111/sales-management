@@ -28,6 +28,7 @@ const menus = [
   { label: "매입가 관리", href: "/cost" },
   { label: "상품관리", href: "/products" },
   { label: "매출 분석", href: "/sales" },
+  { label: "재고관리", href: "/inventory" },
   { label: "지출관리", href: "/expenses" },
 ];
 
