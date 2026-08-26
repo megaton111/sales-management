@@ -60,8 +60,10 @@ const cardSx = {
 };
 
 export default function StoresPage() {
-  const { stores, currentStore, setCurrentStore } = useStore();
+  const { stores, currentStore, setCurrentStore, deleteStore } = useStore();
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
+  const [deleteStoreConfirm, setDeleteStoreConfirm] = useState<number | null>(null);
+  const [deletingStore, setDeletingStore] = useState(false);
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loadingIntegrations, setLoadingIntegrations] = useState(false);
 
@@ -125,6 +127,20 @@ export default function StoresPage() {
     }
   };
 
+  const handleDeleteStore = async () => {
+    if (!deleteStoreConfirm) return;
+    setDeletingStore(true);
+    const ok = await deleteStore(deleteStoreConfirm);
+    setDeletingStore(false);
+    setDeleteStoreConfirm(null);
+    if (ok) {
+      setSelectedStoreId(null);
+      setSnackbar({ open: true, message: '스토어가 삭제되었습니다', severity: 'success' });
+    } else {
+      setSnackbar({ open: true, message: '삭제에 실패했습니다', severity: 'error' });
+    }
+  };
+
   const handleDelete = async (platform: string) => {
     if (!activeStoreId) return;
     const res = await fetch(`/api/stores/integrations?storeId=${activeStoreId}&platform=${platform}`, { method: 'DELETE' });
@@ -156,11 +172,24 @@ export default function StoresPage() {
                   color: activeStoreId === store.id ? '#fff' : '#495057',
                   fontWeight: activeStoreId === store.id ? 600 : 400,
                   fontSize: '0.875rem',
-                  '&:hover': { backgroundColor: activeStoreId === store.id ? '#343a40' : '#f1f3f5' },
+                  '&:hover': { backgroundColor: activeStoreId === store.id ? '#343a40' : '#f1f3f5', '& .delete-btn': { opacity: 1 } },
                   transition: 'all 0.1s',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}
               >
-                {store.name}
+                <Box component="span">{store.name}</Box>
+                <IconButton
+                  className="delete-btn"
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); setDeleteStoreConfirm(store.id); }}
+                  sx={{
+                    opacity: 0, transition: 'opacity 0.1s', p: 0.3,
+                    color: activeStoreId === store.id ? 'rgba(255,255,255,0.6)' : '#adb5bd',
+                    '&:hover': { color: activeStoreId === store.id ? '#fff' : '#e03131', backgroundColor: 'transparent' },
+                  }}
+                >
+                  <DeleteIcon sx={{ fontSize: 14 }} />
+                </IconButton>
               </Box>
             ))}
           </Box>
@@ -305,6 +334,24 @@ export default function StoresPage() {
           <Button onClick={() => handleDelete(deleteConfirm!)} variant="contained" size="small"
             sx={{ backgroundColor: '#e03131', '&:hover': { backgroundColor: '#c92a2a' } }}>
             해제
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 스토어 삭제 확인 다이얼로그 */}
+      <Dialog open={!!deleteStoreConfirm} onClose={() => setDeleteStoreConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 600 }}>스토어 삭제</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '0.875rem', color: '#495057' }}>
+            <strong>{stores.find(s => s.id === deleteStoreConfirm)?.name}</strong> 스토어를 삭제할까요?<br />
+            연동 정보와 모든 매출 데이터가 함께 삭제됩니다.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setDeleteStoreConfirm(null)} size="small" sx={{ color: '#868e96' }}>취소</Button>
+          <Button onClick={handleDeleteStore} variant="contained" size="small" disabled={deletingStore}
+            sx={{ backgroundColor: '#e03131', '&:hover': { backgroundColor: '#c92a2a' } }}>
+            {deletingStore ? '삭제 중...' : '삭제'}
           </Button>
         </DialogActions>
       </Dialog>

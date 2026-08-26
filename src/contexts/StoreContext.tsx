@@ -13,6 +13,7 @@ type StoreContextType = {
   currentStore: Store | null;
   setCurrentStore: (store: Store) => void;
   addStore: (name: string) => Promise<Store | null>;
+  deleteStore: (id: number) => Promise<boolean>;
   loading: boolean;
   refreshStores: () => Promise<void>;
 };
@@ -22,6 +23,7 @@ const StoreContext = createContext<StoreContextType>({
   currentStore: null,
   setCurrentStore: () => {},
   addStore: async () => null,
+  deleteStore: async () => false,
   loading: true,
   refreshStores: async () => {},
 });
@@ -70,12 +72,24 @@ export default function StoreProvider({ children }: { children: ReactNode }) {
     return newStore;
   };
 
+  const deleteStore = async (id: number): Promise<boolean> => {
+    const res = await fetch(`/api/stores?storeId=${id}`, { method: 'DELETE' });
+    if (!res.ok) return false;
+    const remaining = await fetchStores();
+    if (currentStore?.id === id) {
+      const next = remaining.find(s => s.id !== id) || null;
+      if (next) setCurrentStore(next);
+      else setCurrentStoreState(null);
+    }
+    return true;
+  };
+
   const refreshStores = async () => {
     await fetchStores();
   };
 
   return (
-    <StoreContext.Provider value={{ stores, currentStore, setCurrentStore, addStore, loading, refreshStores }}>
+    <StoreContext.Provider value={{ stores, currentStore, setCurrentStore, addStore, deleteStore, loading, refreshStores }}>
       {children}
     </StoreContext.Provider>
   );
