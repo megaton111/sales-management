@@ -132,6 +132,16 @@ export async function fetchOrderSheetsByDate(date: string): Promise<OrderSheet[]
   return allOrders;
 }
 
+async function fetchAllOrderSheetsByDateRaw(date: string): Promise<OrderSheet[]> {
+  const allOrders: OrderSheet[] = [];
+  for (const status of SALE_STATUSES) {
+    const orders = await fetchOrderSheetsByStatus(date, status);
+    allOrders.push(...orders);
+    await sleep(250);
+  }
+  return allOrders;
+}
+
 // ========== 로켓그로스 주문 API ==========
 
 interface RgOrderItem {
@@ -155,6 +165,7 @@ interface RgOrderResponse {
   data: RgOrder[];
   nextToken?: string;
 }
+
 
 export async function fetchRgOrders(dateFrom: string, dateTo: string): Promise<RgOrder[]> {
   const allData: RgOrder[] = [];
@@ -246,14 +257,25 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split('T')[0];
-    const orders = await fetchOrderSheetsByDate(dateStr);
+    const allOrders = await fetchAllOrderSheetsByDateRaw(dateStr);
 
-    for (const order of orders) {
+    const seenOrderIds = new Set<number>();
+    const seenItemKeys = new Set<string>();
+
+    for (const order of allOrders) {
       const daily = getOrCreate(dateStr, 'marketplace');
-      daily.orderCount++;
+
+      if (!seenOrderIds.has(order.orderId)) {
+        seenOrderIds.add(order.orderId);
+        daily.orderCount++;
+      }
 
       for (const item of order.orderItems) {
         if (item.canceled) continue;
+        const itemKey = `${order.orderId}_${item.vendorItemId}`;
+        if (seenItemKeys.has(itemKey)) continue;
+        seenItemKeys.add(itemKey);
+
         const saleAmount = item.orderPrice - item.coupangDiscount;
         daily.totalSalePrice += saleAmount;
         addItem(daily, item.vendorItemId, item.sellerProductName.trim().replace(/\s+/g, ' '), item.vendorItemName, item.shippingCount, saleAmount);
