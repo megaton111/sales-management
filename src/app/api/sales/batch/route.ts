@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
     const creds = integration.credentials as CoupangCredentials;
 
-    const dailyMap = await fetchAllOrders(dateFrom, dateTo, creds);
+    const { dailyMap, orderDetails } = await fetchAllOrders(dateFrom, dateTo, creds);
     // 이익금 스냅샷용 profitMap 생성
     const [{ data: salesData }, { data: mappingData }] = await Promise.all([
       supabase.from('product_sales').select('name, profit').eq('store_id', storeId),
@@ -95,6 +95,39 @@ export async function POST(request: NextRequest) {
       }
 
       totalDays++;
+    }
+
+    // 주문 상세 저장 (기존 데이터 삭제 후 재삽입)
+    await supabase
+      .from('daily_order_details')
+      .delete()
+      .eq('store_id', storeId)
+      .gte('sale_date', dateFrom)
+      .lte('sale_date', dateTo);
+
+    if (orderDetails.length > 0) {
+      const detailRows = orderDetails.map(d => ({
+        store_id: storeId,
+        sale_date: d.saleDate,
+        channel: d.channel,
+        order_id: d.orderId,
+        vendor_item_id: d.vendorItemId,
+        quantity: d.quantity,
+        sale_amount: d.saleAmount,
+        paid_at: d.paidAt,
+        status: d.status ?? null,
+        sales_price: d.salesPrice ?? null,
+        order_price: d.orderPrice ?? null,
+        discount_price: d.discountPrice ?? null,
+        coupon_discount: d.couponDiscount ?? null,
+        unit_price: d.unitPrice ?? null,
+      }));
+
+      const { error: detailError } = await supabase
+        .from('daily_order_details')
+        .insert(detailRows);
+
+      if (detailError) throw detailError;
     }
 
     return NextResponse.json({

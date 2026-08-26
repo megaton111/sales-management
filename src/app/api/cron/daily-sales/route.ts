@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       }
       const creds = integration.credentials as CoupangCredentials;
 
-      const dailyMap = await fetchAllOrders(yesterday, yesterday, creds);
+      const { dailyMap, orderDetails } = await fetchAllOrders(yesterday, yesterday, creds);
 
       for (const [key, daily] of dailyMap) {
         const idx = key.indexOf('_');
@@ -81,6 +81,33 @@ export async function GET(request: NextRequest) {
         if (itemRows.length > 0) {
           await supabase.from('daily_sales_items').insert(itemRows);
         }
+      }
+
+      // 주문 상세 저장
+      await supabase
+        .from('daily_order_details')
+        .delete()
+        .eq('store_id', store.id)
+        .eq('sale_date', yesterday);
+
+      if (orderDetails.length > 0) {
+        const detailRows = orderDetails.map(d => ({
+          store_id: store.id,
+          sale_date: d.saleDate,
+          channel: d.channel,
+          order_id: d.orderId,
+          vendor_item_id: d.vendorItemId,
+          quantity: d.quantity,
+          sale_amount: d.saleAmount,
+          paid_at: d.paidAt,
+          status: d.status ?? null,
+          sales_price: d.salesPrice ?? null,
+          order_price: d.orderPrice ?? null,
+          discount_price: d.discountPrice ?? null,
+          coupon_discount: d.couponDiscount ?? null,
+          unit_price: d.unitPrice ?? null,
+        }));
+        await supabase.from('daily_order_details').insert(detailRows);
       }
 
       results.push({ storeId: store.id, date: yesterday });

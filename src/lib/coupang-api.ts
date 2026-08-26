@@ -1,20 +1,23 @@
 import crypto from 'crypto';
 
-const ACCESS_KEY = process.env.COUPANG_ACCESS_KEY!;
-const SECRET_KEY = process.env.COUPANG_SECRET_KEY!;
-const VENDOR_ID = process.env.COUPANG_VENDOR_ID!;
 const BASE_URL = 'https://api-gateway.coupang.com';
 
-function generateHmacSignature(method: string, path: string, query: string) {
+export interface CoupangCredentials {
+  access_key: string;
+  secret_key: string;
+  vendor_id: string;
+}
+
+function generateHmacSignature(method: string, path: string, query: string, creds: CoupangCredentials) {
   const datetime = new Date().toISOString().slice(2, 19)
     .replace(/:/g, '').replace(/-/g, '') + 'Z';
 
   const message = datetime + method + path + query;
-  const signature = crypto.createHmac('sha256', SECRET_KEY)
+  const signature = crypto.createHmac('sha256', creds.secret_key)
     .update(message)
     .digest('hex');
 
-  return `CEA algorithm=HmacSHA256, access-key=${ACCESS_KEY}, signed-date=${datetime}, signature=${signature}`;
+  return `CEA algorithm=HmacSHA256, access-key=${creds.access_key}, signed-date=${datetime}, signature=${signature}`;
 }
 
 function sleep(ms: number) {
@@ -72,28 +75,23 @@ interface OrderSheetResponse {
 
 const SALE_STATUSES = ['ACCEPT', 'INSTRUCT', 'DEPARTURE', 'DELIVERING', 'FINAL_DELIVERY', 'NONE_TRACKING'];
 
-async function fetchOrderSheetsByStatus(date: string, status: string): Promise<OrderSheet[]> {
+async function fetchOrderSheetsByStatus(date: string, status: string, creds: CoupangCredentials): Promise<OrderSheet[]> {
   const allData: OrderSheet[] = [];
   let nextToken = '';
   let hasMore = true;
 
-  const path = `/v2/providers/openapi/apis/api/v4/vendors/${VENDOR_ID}/ordersheets`;
+  const path = `/v2/providers/openapi/apis/api/v4/vendors/${creds.vendor_id}/ordersheets`;
 
   while (hasMore) {
     let query = `createdAtFrom=${date}&createdAtTo=${date}&status=${status}`;
-    if (nextToken) {
-      query += `&nextToken=${nextToken}`;
-    }
+    if (nextToken) query += `&nextToken=${nextToken}`;
     query += '&maxPerPage=50';
 
-    const authorization = generateHmacSignature('GET', path, query);
+    const authorization = generateHmacSignature('GET', path, query, creds);
 
     const res = await fetchWithRetry(`${BASE_URL}${path}?${query}`, {
       method: 'GET',
-      headers: {
-        'Authorization': authorization,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': authorization, 'Content-Type': 'application/json' },
     });
 
     if (!res.ok) {
@@ -114,12 +112,12 @@ async function fetchOrderSheetsByStatus(date: string, status: string): Promise<O
   return allData;
 }
 
-export async function fetchOrderSheetsByDate(date: string): Promise<OrderSheet[]> {
+export async function fetchOrderSheetsByDate(date: string, creds: CoupangCredentials): Promise<OrderSheet[]> {
   const allOrders: OrderSheet[] = [];
   const seenOrderIds = new Set<number>();
 
   for (const status of SALE_STATUSES) {
-    const orders = await fetchOrderSheetsByStatus(date, status);
+    const orders = await fetchOrderSheetsByStatus(date, status, creds);
     for (const order of orders) {
       if (!seenOrderIds.has(order.orderId)) {
         seenOrderIds.add(order.orderId);
@@ -132,10 +130,10 @@ export async function fetchOrderSheetsByDate(date: string): Promise<OrderSheet[]
   return allOrders;
 }
 
-async function fetchAllOrderSheetsByDateRaw(date: string): Promise<OrderSheet[]> {
+async function fetchAllOrderSheetsByDateRaw(date: string, creds: CoupangCredentials): Promise<OrderSheet[]> {
   const allOrders: OrderSheet[] = [];
   for (const status of SALE_STATUSES) {
-    const orders = await fetchOrderSheetsByStatus(date, status);
+    const orders = await fetchOrderSheetsByStatus(date, status, creds);
     allOrders.push(...orders);
     await sleep(250);
   }
@@ -166,33 +164,26 @@ interface RgOrderResponse {
   nextToken?: string;
 }
 
-
-export async function fetchRgOrders(dateFrom: string, dateTo: string): Promise<RgOrder[]> {
+export async function fetchRgOrders(dateFrom: string, dateTo: string, creds: CoupangCredentials): Promise<RgOrder[]> {
   const allData: RgOrder[] = [];
   let nextToken = '';
   let hasMore = true;
 
-  // paidDateTo는 exclusive이므로 +1일
   const toDate = new Date(dateTo);
   toDate.setDate(toDate.getDate() + 1);
   const adjustedTo = toDate.toISOString().split('T')[0];
 
-  const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${VENDOR_ID}/rg/orders`;
+  const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${creds.vendor_id}/rg/orders`;
 
   while (hasMore) {
     let query = `paidDateFrom=${toCompactDate(dateFrom)}&paidDateTo=${toCompactDate(adjustedTo)}`;
-    if (nextToken) {
-      query += `&nextToken=${nextToken}`;
-    }
+    if (nextToken) query += `&nextToken=${nextToken}`;
 
-    const authorization = generateHmacSignature('GET', path, query);
+    const authorization = generateHmacSignature('GET', path, query, creds);
 
     const res = await fetchWithRetry(`${BASE_URL}${path}?${query}`, {
       method: 'GET',
-      headers: {
-        'Authorization': authorization,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': authorization, 'Content-Type': 'application/json' },
     });
 
     if (!res.ok) {
@@ -228,9 +219,28 @@ interface ChannelDailySaleData {
   }>;
 }
 
-// key: "날짜_채널" (예: "2026-05-13_marketplace")
-export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<Map<string, ChannelDailySaleData>> {
+export interface OrderDetailRecord {
+  saleDate: string;
+  channel: 'marketplace' | 'rocket_growth';
+  orderId: number;
+  vendorItemId: number;
+  quantity: number;
+  saleAmount: number;
+  paidAt: string;
+  salesPrice?: number;
+  orderPrice?: number;
+  discountPrice?: number;
+  couponDiscount?: number;
+  unitPrice?: number;
+  status?: string;
+}
+
+export async function fetchAllOrders(dateFrom: string, dateTo: string, creds: CoupangCredentials): Promise<{
+  dailyMap: Map<string, ChannelDailySaleData>;
+  orderDetails: OrderDetailRecord[];
+}> {
   const dailyMap = new Map<string, ChannelDailySaleData>();
+  const orderDetails: OrderDetailRecord[] = [];
 
   function getOrCreate(date: string, channel: string): ChannelDailySaleData {
     const key = `${date}_${channel}`;
@@ -251,13 +261,13 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
     }
   }
 
-  // 1. 판매자배송 발주서 조회 (하루씩 반복)
+  // 1. 판매자배송 발주서 조회
   const start = new Date(dateFrom);
   const end = new Date(dateTo);
 
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dateStr = d.toISOString().split('T')[0];
-    const allOrders = await fetchAllOrderSheetsByDateRaw(dateStr);
+    const allOrders = await fetchAllOrderSheetsByDateRaw(dateStr, creds);
 
     const seenOrderIds = new Set<number>();
     const seenItemKeys = new Set<string>();
@@ -279,11 +289,26 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
         const saleAmount = item.orderPrice - item.coupangDiscount;
         daily.totalSalePrice += saleAmount;
         addItem(daily, item.vendorItemId, item.sellerProductName.trim().replace(/\s+/g, ' '), item.vendorItemName, item.shippingCount, saleAmount);
+
+        orderDetails.push({
+          saleDate: dateStr,
+          channel: 'marketplace',
+          orderId: order.orderId,
+          vendorItemId: item.vendorItemId,
+          quantity: item.shippingCount,
+          saleAmount,
+          paidAt: order.paidAt,
+          salesPrice: item.salesPrice * item.shippingCount,
+          orderPrice: item.orderPrice,
+          discountPrice: item.discountPrice,
+          couponDiscount: item.coupangDiscount,
+          status: order.status,
+        });
       }
     }
   }
 
-  // 2. 로켓그로스 주문 조회 (최대 1개월 제한이므로 월 단위로 분할)
+  // 2. 로켓그로스 주문 조회
   const rgOrders: RgOrder[] = [];
   {
     let chunkStart = new Date(dateFrom);
@@ -293,7 +318,7 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
       const chunkEnd = chunkEndDate < finalEnd ? chunkEndDate : finalEnd;
       const from = chunkStart.toISOString().split('T')[0];
       const to = chunkEnd.toISOString().split('T')[0];
-      const chunk = await fetchRgOrders(from, to);
+      const chunk = await fetchRgOrders(from, to, creds);
       rgOrders.push(...chunk);
       chunkStart = new Date(chunkEnd);
       chunkStart.setDate(chunkStart.getDate() + 1);
@@ -314,10 +339,21 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string): Promise<
       daily.totalSalePrice += totalPrice;
       const cleanName = item.productName.trim().replace(/\s+/g, ' ');
       addItem(daily, item.vendorItemId, cleanName, cleanName, item.salesQuantity, totalPrice);
+
+      orderDetails.push({
+        saleDate: dateStr,
+        channel: 'rocket_growth',
+        orderId: order.orderId,
+        vendorItemId: item.vendorItemId,
+        quantity: item.salesQuantity,
+        saleAmount: totalPrice,
+        paidAt: order.paidAt,
+        unitPrice,
+      });
     }
   }
 
-  return dailyMap;
+  return { dailyMap, orderDetails };
 }
 
 // ========== 로켓그로스 재고 API ==========
@@ -341,24 +377,21 @@ interface RgInventoryResponse {
   nextToken?: string;
 }
 
-export async function fetchRgInventory(): Promise<RgInventoryItem[]> {
+export async function fetchRgInventory(creds: CoupangCredentials): Promise<RgInventoryItem[]> {
   const allData: RgInventoryItem[] = [];
   const seenIds = new Set<number>();
   let nextToken = '';
   let hasMore = true;
 
-  const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${VENDOR_ID}/rg/inventory/summaries`;
+  const path = `/v2/providers/rg_open_api/apis/api/v1/vendors/${creds.vendor_id}/rg/inventory/summaries`;
 
   while (hasMore) {
     const query = nextToken ? `nextToken=${nextToken}` : '';
-    const authorization = generateHmacSignature('GET', path, query);
+    const authorization = generateHmacSignature('GET', path, query, creds);
 
     const res = await fetchWithRetry(`${BASE_URL}${path}${query ? `?${query}` : ''}`, {
       method: 'GET',
-      headers: {
-        'Authorization': authorization,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': authorization, 'Content-Type': 'application/json' },
     });
 
     if (!res.ok) {

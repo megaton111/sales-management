@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { fetchRgOrders, CoupangCredentials } from '@/lib/coupang-api';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -15,42 +14,27 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
 
-    const { data: integration } = await supabase
-      .from('store_integrations')
-      .select('credentials')
+    const { data, error } = await supabase
+      .from('daily_order_details')
+      .select('order_id, paid_at, quantity, unit_price, sale_amount')
       .eq('store_id', storeId)
-      .eq('platform', 'coupang')
-      .single();
+      .eq('sale_date', date)
+      .eq('channel', 'rocket_growth')
+      .eq('vendor_item_id', vendorItemId);
 
-    if (!integration) {
-      return NextResponse.json({ error: '쿠팡 연동 정보가 없습니다. 스토어 관리에서 API 키를 등록해주세요.' }, { status: 400 });
-    }
-    const creds = integration.credentials as CoupangCredentials;
+    if (error) throw error;
 
-    const orders = await fetchRgOrders(date, date, creds);
-    const vid = Number(vendorItemId);
+    const orders = (data || [])
+      .map(r => ({
+        orderId: Number(r.order_id),
+        paidAt: r.paid_at ?? '',
+        quantity: r.quantity,
+        unitSalesPrice: r.unit_price ?? 0,
+        saleAmount: r.sale_amount,
+      }))
+      .sort((a, b) => Number(b.paidAt) - Number(a.paidAt));
 
-    const result: { orderId: number; paidAt: string; quantity: number; unitSalesPrice: number; saleAmount: number }[] = [];
-
-    for (const order of orders) {
-      const paidMs = Number(order.paidAt);
-      const kstDate = new Date(paidMs + 9 * 60 * 60 * 1000);
-      const orderDateStr = kstDate.toISOString().split('T')[0];
-      if (orderDateStr !== date) continue;
-
-      const matched = order.orderItems.filter(i => i.vendorItemId === vid);
-      if (matched.length === 0) continue;
-
-      const quantity = matched.reduce((sum, i) => sum + i.salesQuantity, 0);
-      const unitSalesPrice = Math.floor(Number(matched[0].unitSalesPrice));
-      const saleAmount = matched.reduce((sum, i) => sum + Math.floor(Number(i.unitSalesPrice)) * i.salesQuantity, 0);
-
-      result.push({ orderId: order.orderId, paidAt: order.paidAt, quantity, unitSalesPrice, saleAmount });
-    }
-
-    result.sort((a, b) => Number(b.paidAt) - Number(a.paidAt));
-
-    return NextResponse.json({ orders: result });
+    return NextResponse.json({ orders });
   } catch (e) {
     const message = e instanceof Error ? e.message : '알 수 없는 오류';
     return NextResponse.json({ error: message }, { status: 500 });
