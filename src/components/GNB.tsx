@@ -30,6 +30,7 @@ const menus = [
   { label: "매출 분석", href: "/sales" },
   { label: "재고관리", href: "/inventory" },
   { label: "지출관리", href: "/expenses" },
+  { label: "스토어 관리", href: "/stores" },
 ];
 
 export default function GNB() {
