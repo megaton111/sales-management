@@ -77,6 +77,7 @@ export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<'stock' | 'daysLeft' | 'salesLast30'>('stock');
@@ -171,17 +172,19 @@ export default function InventoryPage() {
               </Button>
             ))}
           </ButtonGroup>
-            <Tooltip title="쿠팡 API에서 최신 재고 불러오기">
-              <Button
-                size="small"
-                startIcon={<SyncIcon sx={{ fontSize: 15, ...(syncing && { animation: `${spin} 1s linear infinite` }) }} />}
-                onClick={handleSync}
-                disabled={syncing || loading}
-                sx={{ fontSize: '0.8rem', color: '#495057', borderColor: '#dee2e6', border: '1px solid', borderRadius: 2, '&:hover': { backgroundColor: '#f8f9fa' } }}
-              >
-                {syncing ? '동기화 중...' : '재고 동기화'}
-              </Button>
-            </Tooltip>
+            {isLocal && (
+              <Tooltip title="쿠팡 API에서 최신 재고 불러오기">
+                <Button
+                  size="small"
+                  startIcon={<SyncIcon sx={{ fontSize: 15, ...(syncing && { animation: `${spin} 1s linear infinite` }) }} />}
+                  onClick={handleSync}
+                  disabled={syncing || loading}
+                  sx={{ fontSize: '0.8rem', color: '#495057', borderColor: '#dee2e6', border: '1px solid', borderRadius: 2, '&:hover': { backgroundColor: '#f8f9fa' } }}
+                >
+                  {syncing ? '동기화 중...' : '재고 동기화'}
+                </Button>
+              </Tooltip>
+            )}
           </Box>
         </Box>
 
