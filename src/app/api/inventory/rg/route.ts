@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { fetchRgInventory } from '@/lib/coupang-api';
+import { fetchRgInventory, CoupangCredentials } from '@/lib/coupang-api';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -11,12 +11,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [inventoryItems, supabase] = await Promise.all([
-      fetchRgInventory(),
-      createClient(),
-    ]);
+    const supabase = await createClient();
 
-    // daily_sales_items는 날짜별 반복 저장되므로 최신순으로 충분히 가져와 nameMap 구성
+    const { data: integration } = await supabase
+      .from('store_integrations')
+      .select('credentials')
+      .eq('store_id', storeId)
+      .eq('platform', 'coupang')
+      .single();
+
+    if (!integration) {
+      return NextResponse.json({ error: '쿠팡 연동 정보가 없습니다. 스토어 관리에서 API 키를 등록해주세요.' }, { status: 400 });
+    }
+    const creds = integration.credentials as CoupangCredentials;
+
+    const inventoryItems = await fetchRgInventory(creds);
+
     const { data: dbItems, error } = await supabase
       .from('daily_sales_items')
       .select('vendor_item_id, vendor_item_name, product_name, channel')

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { fetchAllOrders } from '@/lib/coupang-api';
+import { fetchAllOrders, CoupangCredentials } from '@/lib/coupang-api';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,9 +10,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '필수 파라미터가 누락되었습니다' }, { status: 400 });
     }
 
-    const dailyMap = await fetchAllOrders(dateFrom, dateTo);
     const supabase = await createClient();
 
+    const { data: integration } = await supabase
+      .from('store_integrations')
+      .select('credentials')
+      .eq('store_id', storeId)
+      .eq('platform', 'coupang')
+      .single();
+
+    if (!integration) {
+      return NextResponse.json({ error: '쿠팡 연동 정보가 없습니다. 스토어 관리에서 API 키를 등록해주세요.' }, { status: 400 });
+    }
+    const creds = integration.credentials as CoupangCredentials;
+
+    const dailyMap = await fetchAllOrders(dateFrom, dateTo, creds);
     // 이익금 스냅샷용 profitMap 생성
     const [{ data: salesData }, { data: mappingData }] = await Promise.all([
       supabase.from('product_sales').select('name, profit').eq('store_id', storeId),

@@ -187,7 +187,7 @@ export default function SalesPage() {
     if (orderDetailsMap[key]) return;
     setOrderLoadingKey(key);
     try {
-      const res = await fetch(`/api/sales/orders?date=${selectedDate}&vendorItemId=${key}`);
+      const res = await fetch(`/api/sales/orders?date=${selectedDate}&vendorItemId=${key}&storeId=${currentStore?.id}`);
       const json = await res.json();
       if (res.ok) setOrderDetailsMap(prev => ({ ...prev, [key]: json.orders }));
     } finally {
@@ -205,7 +205,7 @@ export default function SalesPage() {
     if (rgOrderDetailsMap[key]) return;
     setRgOrderLoadingKey(key);
     try {
-      const res = await fetch(`/api/sales/rg-orders?date=${selectedDate}&vendorItemId=${key}`);
+      const res = await fetch(`/api/sales/rg-orders?date=${selectedDate}&vendorItemId=${key}&storeId=${currentStore?.id}`);
       const json = await res.json();
       if (res.ok) setRgOrderDetailsMap(prev => ({ ...prev, [key]: json.orders }));
     } finally {

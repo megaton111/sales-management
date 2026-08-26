@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { fetchAllOrders } from '@/lib/coupang-api';
+import { fetchAllOrders, CoupangCredentials } from '@/lib/coupang-api';
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -26,7 +26,20 @@ export async function GET(request: NextRequest) {
     const results = [];
 
     for (const store of stores || []) {
-      const dailyMap = await fetchAllOrders(yesterday, yesterday);
+      const { data: integration } = await supabase
+        .from('store_integrations')
+        .select('credentials')
+        .eq('store_id', store.id)
+        .eq('platform', 'coupang')
+        .single();
+
+      if (!integration) {
+        results.push({ storeId: store.id, skipped: true, reason: '쿠팡 연동 정보 없음' });
+        continue;
+      }
+      const creds = integration.credentials as CoupangCredentials;
+
+      const dailyMap = await fetchAllOrders(yesterday, yesterday, creds);
 
       for (const [key, daily] of dailyMap) {
         const idx = key.indexOf('_');

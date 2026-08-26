@@ -1,17 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchOrderSheetsByDate } from '@/lib/coupang-api';
+import { createClient } from '@/lib/supabase-server';
+import { fetchOrderSheetsByDate, CoupangCredentials } from '@/lib/coupang-api';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const date = searchParams.get('date');
   const vendorItemId = searchParams.get('vendorItemId');
+  const storeId = searchParams.get('storeId');
 
-  if (!date || !vendorItemId) {
+  if (!date || !vendorItemId || !storeId) {
     return NextResponse.json({ error: '필수 파라미터 누락' }, { status: 400 });
   }
 
   try {
-    const orders = await fetchOrderSheetsByDate(date);
+    const supabase = await createClient();
+
+    const { data: integration } = await supabase
+      .from('store_integrations')
+      .select('credentials')
+      .eq('store_id', storeId)
+      .eq('platform', 'coupang')
+      .single();
+
+    if (!integration) {
+      return NextResponse.json({ error: '쿠팡 연동 정보가 없습니다. 스토어 관리에서 API 키를 등록해주세요.' }, { status: 400 });
+    }
+    const creds = integration.credentials as CoupangCredentials;
+
+    const orders = await fetchOrderSheetsByDate(date, creds);
     const vid = Number(vendorItemId);
 
     const result: {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { fetchRgInventory } from '@/lib/coupang-api';
+import { fetchRgInventory, CoupangCredentials } from '@/lib/coupang-api';
 
 // 임시 디버그용 — 재고 API ID와 DB ID 비교
 export async function GET(req: NextRequest) {
@@ -12,16 +12,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: '필수 파라미터 누락' }, { status: 400 });
   }
 
-  const [inventoryItems, supabase] = await Promise.all([
-    fetchRgInventory(),
-    createClient(),
-  ]);
+  const supabase = await createClient();
 
-  const { data: dbItems } = await supabase
-    .from('daily_sales_items')
-    .select('vendor_item_id, vendor_item_name, product_name, channel')
+  const { data: integration } = await supabase
+    .from('store_integrations')
+    .select('credentials')
     .eq('store_id', storeId)
-    .ilike('product_name', `%${search}%`);
+    .eq('platform', 'coupang')
+    .single();
+
+  if (!integration) {
+    return NextResponse.json({ error: '쿠팡 연동 정보가 없습니다.' }, { status: 400 });
+  }
+  const creds = integration.credentials as CoupangCredentials;
+
+  const [inventoryItems, { data: dbItems }] = await Promise.all([
+    fetchRgInventory(creds),
+    supabase
+      .from('daily_sales_items')
+      .select('vendor_item_id, vendor_item_name, product_name, channel')
+      .eq('store_id', storeId)
+      .ilike('product_name', `%${search}%`),
+  ]);
 
   const dbIds = new Set((dbItems || []).map(r => Number(r.vendor_item_id)));
 
@@ -36,7 +48,7 @@ export async function GET(req: NextRequest) {
     }));
 
   const dbMatches = (dbItems || [])
-    .filter(r => search)
+    .filter(() => search)
     .map(r => ({
       vendor_item_id: r.vendor_item_id,
       product_name: r.product_name,
