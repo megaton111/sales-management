@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { keyframes } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -13,8 +14,9 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import CircularProgress from '@mui/material/CircularProgress';
 import Skeleton from '@mui/material/Skeleton';
+import Tooltip from '@mui/material/Tooltip';
+import SyncIcon from '@mui/icons-material/Sync';
 import { useStore } from '@/contexts/StoreContext';
 
 interface InventoryItem {
@@ -26,6 +28,8 @@ interface InventoryItem {
   dailyAvg: number;
   daysLeft: number | null;
 }
+
+const spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 
 const thSx = {
   fontWeight: 600,
@@ -72,7 +76,9 @@ export default function InventoryPage() {
   const { currentStore } = useStore();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<'stock' | 'daysLeft' | 'salesLast30'>('stock');
 
   const fetchInventory = useCallback(async () => {
@@ -84,12 +90,29 @@ export default function InventoryPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || '불러오기 실패');
       setItems(json.data || []);
+      setUpdatedAt(json.updatedAt ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : '오류 발생');
     } finally {
       setLoading(false);
     }
   }, [currentStore]);
+
+  const handleSync = async () => {
+    if (!currentStore) return;
+    setSyncing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/inventory/rg/sync?storeId=${currentStore.id}`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '동기화 실패');
+      await fetchInventory();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '오류 발생');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     fetchInventory();
@@ -129,6 +152,24 @@ export default function InventoryPage() {
                 </Typography>
               </Box>
             )}
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {updatedAt && !loading && (
+              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd' }}>
+                {new Date(updatedAt).toLocaleString('ko-KR')} 기준
+              </Typography>
+            )}
+            <Tooltip title="쿠팡 API에서 최신 재고 불러오기">
+              <Button
+                size="small"
+                startIcon={<SyncIcon sx={{ fontSize: 15, ...(syncing && { animation: `${spin} 1s linear infinite` }) }} />}
+                onClick={handleSync}
+                disabled={syncing || loading}
+                sx={{ fontSize: '0.8rem', color: '#495057', borderColor: '#dee2e6', border: '1px solid', borderRadius: 2, '&:hover': { backgroundColor: '#f8f9fa' } }}
+              >
+                {syncing ? '동기화 중...' : '재고 동기화'}
+              </Button>
+            </Tooltip>
           </Box>
           <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, fontSize: '0.8rem', '&.active': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: '#f8f9fa' } } }}>
             {([['stock', '재고순'], ['daysLeft', '소진일순'], ['salesLast30', '판매량순']] as const).map(([key, label]) => (
