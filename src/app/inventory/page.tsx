@@ -159,6 +159,18 @@ export default function InventoryPage() {
                 {new Date(updatedAt).toLocaleString('ko-KR')} 기준
               </Typography>
             )}
+            <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, fontSize: '0.8rem', '&.active': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: '#f8f9fa' } } }}>
+            {([['stock', '재고순'], ['daysLeft', '소진일순'], ['salesLast30', '판매량순']] as const).map(([key, label]) => (
+              <Button
+                key={key}
+                className={sortKey === key ? 'active' : ''}
+                onClick={() => setSortKey(key)}
+                sx={sortKey === key ? { backgroundColor: '#343a40 !important', borderColor: '#343a40 !important', color: '#fff !important' } : {}}
+              >
+                {label}
+              </Button>
+            ))}
+          </ButtonGroup>
             <Tooltip title="쿠팡 API에서 최신 재고 불러오기">
               <Button
                 size="small"
@@ -171,18 +183,6 @@ export default function InventoryPage() {
               </Button>
             </Tooltip>
           </Box>
-          <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, fontSize: '0.8rem', '&.active': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: '#f8f9fa' } } }}>
-            {([['stock', '재고순'], ['daysLeft', '소진일순'], ['salesLast30', '판매량순']] as const).map(([key, label]) => (
-              <Button
-                key={key}
-                className={sortKey === key ? 'active' : ''}
-                onClick={() => setSortKey(key)}
-                sx={sortKey === key ? { backgroundColor: '#343a40 !important', borderColor: '#343a40 !important', color: '#fff !important' } : {}}
-              >
-                {label}
-              </Button>
-            ))}
-          </ButtonGroup>
         </Box>
 
         {error ? (
