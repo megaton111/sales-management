@@ -154,12 +154,16 @@ function processProductOrder(po: any, dailyMap: NaverDailyData['dailyMap']) {
   }
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function fetchNaverOrders(dateFrom: string, dateTo: string, creds: NaverCredentials): Promise<NaverDailyData> {
   const dailyMap: NaverDailyData['dailyMap'] = new Map();
   const dates = getDatesInRange(dateFrom, dateTo);
 
-  // API 최대 24시간 제한 → 날짜별로 1건씩 호출
-  for (const date of dates) {
+  // API 최대 24시간 제한 → 날짜별로 1건씩 호출 (rate limit 방지: 500ms 간격)
+  for (let i = 0; i < dates.length; i++) {
+    const date = dates[i];
+    if (i > 0) await sleep(500);
     let page = 1;
     const PAGE_SIZE = 100;
 
