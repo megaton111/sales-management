@@ -106,7 +106,7 @@ export default function useDashboard(
       const cost = costMap.get(`${item.product_name.trim().replace(/\s+/g, ' ')}|${item.channel}`) ?? costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
       total += cost
         ? calcItemProfit(item.sale_amount, item.quantity, cost)
-        : item.unit_profit * item.quantity;
+        : item.sale_amount;
     }
     return total - totalExpenses;
   }, [filteredItems, costMap, totalExpenses]);
@@ -129,7 +129,7 @@ export default function useDashboard(
         const entry = dayMap.get(d)!;
         entry.profit += cost
           ? calcItemProfit(item.sale_amount, item.quantity, cost)
-          : item.unit_profit * item.quantity;
+          : item.sale_amount;
       }
       for (const row of filteredExpenses) {
         const d = Number(row.expense_date.slice(8, 10));

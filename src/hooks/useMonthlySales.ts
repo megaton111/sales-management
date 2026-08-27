@@ -92,7 +92,7 @@ export default function useMonthlySales(
           ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
         const itemProfit = cost
           ? calcItemProfit(item.sale_amount, item.quantity, cost)
-          : item.unit_profit * item.quantity;
+          : item.sale_amount;
         if (item.channel === 'marketplace') {
           existing.marketplaceProfit += itemProfit;
         } else if (item.channel === 'rocket_growth') {
@@ -122,13 +122,15 @@ export default function useMonthlySales(
   );
 
   const totalProfit = useMemo(() => {
-    if (!costMap || costMap.size === 0) return 0;
+    if (!costMap || costMap.size === 0) {
+      return rows.reduce((sum, r) => sum + Number(r.total_sale_amount), 0);
+    }
     let sum = 0;
     for (const [, daySales] of dailySalesMap) {
       sum += daySales.marketplaceProfit + daySales.rocketGrowthProfit + daySales.smartstoreProfit;
     }
     return sum;
-  }, [dailySalesMap, costMap]);
+  }, [dailySalesMap, costMap, rows]);
 
   return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, loading, refetch: fetchData };
 }
