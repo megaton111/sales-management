@@ -122,11 +122,15 @@ export interface NaverDailyData {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function processProductOrder(po: any, dailyMap: NaverDailyData['dailyMap']) {
-  const status = po.productOrderStatus ?? po.productOrder?.productOrderStatus;
+function processProductOrder(item: any, dailyMap: NaverDailyData['dailyMap']) {
+  // 응답 구조: { productOrderId, content: { order: {...}, productOrder: {...} } }
+  const productOrder = item.content?.productOrder ?? item;
+  const order = item.content?.order ?? {};
+
+  const status = productOrder.productOrderStatus;
   if (!VALID_STATUSES.has(status)) return;
 
-  const paymentDate = po.paymentDate ?? po.productOrder?.paymentDate ?? '';
+  const paymentDate = order.paymentDate ?? productOrder.paymentDate ?? '';
   const payDate = paymentDate?.slice(0, 10);
   if (!payDate) return;
 
@@ -136,10 +140,10 @@ function processProductOrder(po: any, dailyMap: NaverDailyData['dailyMap']) {
   }
   const daily = dailyMap.get(key)!;
 
-  const amount = Number(po.totalPaymentAmount ?? po.productOrder?.totalPaymentAmount ?? 0);
-  const qty = Number(po.quantity ?? po.productOrder?.quantity ?? 1);
-  const productName = String(po.productName ?? po.productOrder?.productName ?? '');
-  const optionName = String(po.optionName ?? po.productOrder?.optionName ?? '');
+  const amount = Number(productOrder.totalPaymentAmount ?? 0);
+  const qty = Number(productOrder.quantity ?? 1);
+  const productName = String(productOrder.productName ?? '');
+  const optionName = String(productOrder.optionName ?? '');
 
   daily.totalSaleAmount += amount;
   daily.orderCount += 1;
@@ -177,24 +181,17 @@ export async function fetchNaverOrders(dateFrom: string, dateTo: string, creds: 
         page: String(page),
       });
 
-      console.log(`[Naver] ${date} p${page} 응답:`, JSON.stringify(json).slice(0, 500));
+      // 응답 구조: { data: { contents: [...], pagination: { hasNext } } }
+      const contents: unknown[] = json?.data?.contents ?? [];
+      const hasNext: boolean = json?.data?.pagination?.hasNext === true;
 
-      // 응답 구조 대응: data가 배열이거나 data.productOrders 배열이거나
-      const rawData = json?.data;
-      const orders: unknown[] = Array.isArray(rawData)
-        ? rawData
-        : Array.isArray(rawData?.productOrders)
-          ? rawData.productOrders
-          : [];
+      console.log(`[Naver] ${date} p${page} contents: ${contents.length}, hasNext: ${hasNext}`);
 
-      console.log(`[Naver] ${date} 주문 수: ${orders.length}`);
-
-      for (const po of orders) {
-        processProductOrder(po, dailyMap);
+      for (const item of contents) {
+        processProductOrder(item, dailyMap);
       }
 
-      const hasMore = json?.data?.more === true || (Array.isArray(rawData) && rawData.length === PAGE_SIZE);
-      if (!hasMore) break;
+      if (!hasNext) break;
       page++;
     }
   }
