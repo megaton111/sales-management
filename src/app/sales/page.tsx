@@ -818,10 +818,14 @@ export default function SalesPage() {
           </Box>
       </Box>
 
-      <Backdrop open={batchLoading} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+      <Backdrop open={batchLoading || naverBatchLoading} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
         <Box sx={{ width: 320, textAlign: 'center' }}>
-          <Typography sx={{ color: '#fff', mb: 2, fontWeight: 500 }}>매출을 불러오는 중입니다.</Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontSize: '0.85rem' }}>잠시만 기다려주세요</Typography>
+          <Typography sx={{ color: '#fff', mb: 2, fontWeight: 500 }}>
+            {naverBatchLoading ? '스마트스토어 매출을 불러오는 중입니다.' : '매출을 불러오는 중입니다.'}
+          </Typography>
+          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontSize: '0.85rem' }}>
+            {naverBatchLoading ? '날짜별로 순차 조회 중입니다. 잠시만 기다려주세요' : '잠시만 기다려주세요'}
+          </Typography>
           <LinearProgress sx={{ borderRadius: 1, height: 6 }} />
         </Box>
       </Backdrop>

@@ -177,6 +177,8 @@ export async function fetchNaverOrders(dateFrom: string, dateTo: string, creds: 
         page: String(page),
       });
 
+      console.log(`[Naver] ${date} p${page} 응답:`, JSON.stringify(json).slice(0, 500));
+
       // 응답 구조 대응: data가 배열이거나 data.productOrders 배열이거나
       const rawData = json?.data;
       const orders: unknown[] = Array.isArray(rawData)
@@ -184,6 +186,8 @@ export async function fetchNaverOrders(dateFrom: string, dateTo: string, creds: 
         : Array.isArray(rawData?.productOrders)
           ? rawData.productOrders
           : [];
+
+      console.log(`[Naver] ${date} 주문 수: ${orders.length}`);
 
       for (const po of orders) {
         processProductOrder(po, dailyMap);
