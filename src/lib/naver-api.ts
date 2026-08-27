@@ -40,19 +40,16 @@ async function fetchToken(creds: NaverCredentials): Promise<string> {
   return json.access_token as string;
 }
 
-// 인증 토큰 캐시 (서버 메모리, 요청별 재사용)
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 export async function getNaverAccessToken(creds: NaverCredentials): Promise<string> {
   const cacheKey = creds.client_id;
   const cached = tokenCache.get(cacheKey);
-  // 만료 30분 전까지 기존 토큰 재사용
   if (cached && cached.expiresAt - Date.now() > 30 * 60 * 1000) {
     return cached.token;
   }
 
   const token = await fetchToken(creds);
-  // 유효시간 3시간, 캐시는 2.5시간 보관
   tokenCache.set(cacheKey, { token, expiresAt: Date.now() + 2.5 * 60 * 60 * 1000 });
   return token;
 }
@@ -90,22 +87,22 @@ export interface NaverProductOrder {
   productOrderStatus: string;
 }
 
-interface NaverOrderItem {
-  orderId: string;
-  productOrders: NaverProductOrder[];
+// API 최대 조회 범위: 24시간 → YYYY-MM-DDTHH:mm:ss.SSS+09:00 형식
+function toNaverDateTime(dateStr: string, endOfDay = false): string {
+  return `${dateStr}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+09:00`;
 }
 
-interface NaverOrderListResponse {
-  data: {
-    lastChangedOrders: NaverOrderItem[];
-    more: boolean;
-    count: number;
-  };
-}
-
-// 날짜를 ISO 형식으로 변환 (예: 2025-01-01 → 2025-01-01T00:00:00.0Z)
-function toNaverDate(dateStr: string, endOfDay = false): string {
-  return `${dateStr}T${endOfDay ? '23:59:59.9' : '00:00:00.0'}Z`;
+// dateFrom~dateTo 사이의 날짜 목록 생성
+function getDatesInRange(dateFrom: string, dateTo: string): string[] {
+  const dates: string[] = [];
+  const start = new Date(dateFrom);
+  const end = new Date(dateTo);
+  const cur = new Date(start);
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
 }
 
 // 완료된 주문만 집계 (취소/반품 제외)
@@ -117,7 +114,6 @@ const VALID_STATUSES = new Set([
 ]);
 
 export interface NaverDailyData {
-  // date_channel → { totalSaleAmount, orderCount, items }
   dailyMap: Map<string, {
     totalSaleAmount: number;
     orderCount: number;
@@ -125,58 +121,74 @@ export interface NaverDailyData {
   }>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function processProductOrder(po: any, dailyMap: NaverDailyData['dailyMap']) {
+  const status = po.productOrderStatus ?? po.productOrder?.productOrderStatus;
+  if (!VALID_STATUSES.has(status)) return;
+
+  const paymentDate = po.paymentDate ?? po.productOrder?.paymentDate ?? '';
+  const payDate = paymentDate?.slice(0, 10);
+  if (!payDate) return;
+
+  const key = `${payDate}_smartstore`;
+  if (!dailyMap.has(key)) {
+    dailyMap.set(key, { totalSaleAmount: 0, orderCount: 0, items: new Map() });
+  }
+  const daily = dailyMap.get(key)!;
+
+  const amount = Number(po.totalPaymentAmount ?? po.productOrder?.totalPaymentAmount ?? 0);
+  const qty = Number(po.quantity ?? po.productOrder?.quantity ?? 1);
+  const productName = String(po.productName ?? po.productOrder?.productName ?? '');
+  const optionName = String(po.optionName ?? po.productOrder?.optionName ?? '');
+
+  daily.totalSaleAmount += amount;
+  daily.orderCount += 1;
+
+  const productKey = `${productName}|${optionName}`;
+  const existing = daily.items.get(productKey);
+  if (existing) {
+    existing.quantity += qty;
+    existing.saleAmount += amount;
+  } else {
+    daily.items.set(productKey, { productName, optionName, quantity: qty, saleAmount: amount });
+  }
+}
+
 export async function fetchNaverOrders(dateFrom: string, dateTo: string, creds: NaverCredentials): Promise<NaverDailyData> {
-  const dailyMap = new Map<string, {
-    totalSaleAmount: number;
-    orderCount: number;
-    items: Map<string, { productName: string; optionName: string; quantity: number; saleAmount: number }>;
-  }>();
+  const dailyMap: NaverDailyData['dailyMap'] = new Map();
+  const dates = getDatesInRange(dateFrom, dateTo);
 
-  let page = 1;
-  const PAGE_SIZE = 300;
+  // API 최대 24시간 제한 → 날짜별로 1건씩 호출
+  for (const date of dates) {
+    let page = 1;
+    const PAGE_SIZE = 100;
 
-  while (true) {
-    const json: NaverOrderListResponse = await naverFetch('/v1/pay-order/seller/orders', creds, {
-      lastChangedFrom: toNaverDate(dateFrom),
-      lastChangedTo: toNaverDate(dateTo, true),
-      page: String(page),
-      pageSize: String(PAGE_SIZE),
-    });
+    while (true) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json: any = await naverFetch('/v1/pay-order/seller/product-orders', creds, {
+        from: toNaverDateTime(date, false),
+        to: toNaverDateTime(date, true),
+        rangeType: 'PAYED_DATETIME',
+        pageSize: String(PAGE_SIZE),
+        page: String(page),
+      });
 
-    const orders = json.data?.lastChangedOrders ?? [];
+      // 응답 구조 대응: data가 배열이거나 data.productOrders 배열이거나
+      const rawData = json?.data;
+      const orders: unknown[] = Array.isArray(rawData)
+        ? rawData
+        : Array.isArray(rawData?.productOrders)
+          ? rawData.productOrders
+          : [];
 
-    for (const order of orders) {
-      for (const po of order.productOrders ?? []) {
-        if (!VALID_STATUSES.has(po.productOrderStatus)) continue;
-
-        const payDate = po.paymentDate?.slice(0, 10) ?? dateFrom;
-        const key = `${payDate}_smartstore`;
-
-        if (!dailyMap.has(key)) {
-          dailyMap.set(key, { totalSaleAmount: 0, orderCount: 0, items: new Map() });
-        }
-        const daily = dailyMap.get(key)!;
-        daily.totalSaleAmount += po.totalPaymentAmount;
-        daily.orderCount += 1;
-
-        const productKey = `${po.productName}|${po.optionName ?? ''}`;
-        const existing = daily.items.get(productKey);
-        if (existing) {
-          existing.quantity += po.quantity;
-          existing.saleAmount += po.totalPaymentAmount;
-        } else {
-          daily.items.set(productKey, {
-            productName: po.productName,
-            optionName: po.optionName ?? '',
-            quantity: po.quantity,
-            saleAmount: po.totalPaymentAmount,
-          });
-        }
+      for (const po of orders) {
+        processProductOrder(po, dailyMap);
       }
-    }
 
-    if (!json.data?.more) break;
-    page++;
+      const hasMore = json?.data?.more === true || (Array.isArray(rawData) && rawData.length === PAGE_SIZE);
+      if (!hasMore) break;
+      page++;
+    }
   }
 
   return { dailyMap };
