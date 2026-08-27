@@ -473,6 +473,9 @@ export default function SalesPage() {
   const rgItems = isMonthly
     ? mergeByVendorItem(items.filter(i => i.channel === 'rocket_growth'))
     : items.filter(i => i.channel === 'rocket_growth');
+  const ssItems = isMonthly
+    ? mergeByVendorItem(items.filter(i => i.channel === 'smartstore'))
+    : items.filter(i => i.channel === 'smartstore');
 
   const renderItemTable = (tableItems: typeof items) => (
     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
@@ -493,7 +496,7 @@ export default function SalesPage() {
             const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
-              : item.unit_profit * item.quantity;
+              : item.sale_amount;
             return (
               <TableRow key={`${item.channel}_${item.vendor_item_id}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
                 <TableCell sx={tdSx}>{item.product_name}</TableCell>
@@ -803,6 +806,14 @@ export default function SalesPage() {
                           {detailLabel ? `${detailLabel} 로켓그로스` : `${month}월 ${selectedDay}일 로켓그로스`}
                         </Typography>
                         {isMonthly ? renderItemTable(rgItems) : renderRgTable(rgItems)}
+                      </Box>
+                    )}
+                    {ssItems.length > 0 && (
+                      <Box>
+                        <Typography sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.85rem', color: '#03c75a' }}>
+                          {detailLabel ? `${detailLabel} 스마트스토어` : `${month}월 ${selectedDay}일 스마트스토어`}
+                        </Typography>
+                        {renderItemTable(ssItems)}
                       </Box>
                     )}
                   </Box>
