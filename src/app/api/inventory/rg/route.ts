@@ -48,6 +48,12 @@ export async function GET(req: NextRequest) {
         const dailyAvg = salesLast30 / 30;
         const stock = item.stock;
         const daysLeft = dailyAvg > 0 ? Math.round(stock / dailyAvg) : null;
+        const stockoutDate = daysLeft !== null
+          ? new Date(Date.now() + daysLeft * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          : null;
+        const recommendedRestock = dailyAvg > 0
+          ? Math.max(0, Math.ceil(dailyAvg * 35) - stock)
+          : 0;
         return {
           vendorItemId: item.vendor_item_id,
           productName: names.productName,
@@ -56,6 +62,8 @@ export async function GET(req: NextRequest) {
           salesLast30,
           dailyAvg: Math.round(dailyAvg * 10) / 10,
           daysLeft,
+          stockoutDate,
+          recommendedRestock,
         };
       });
 

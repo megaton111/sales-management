@@ -405,6 +405,9 @@ export async function fetchRgInventory(creds: CoupangCredentials): Promise<RgInv
     }
 
     const json: RgInventoryResponse = await res.json();
+    if (allData.length === 0 && json.data?.length > 0) {
+      console.log('[재고 API 원본 첫 항목]', JSON.stringify(json.data[0], null, 2));
+    }
     for (const item of json.data || []) {
       if (!seenIds.has(item.vendorItemId)) {
         seenIds.add(item.vendorItemId);

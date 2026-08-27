@@ -27,6 +27,8 @@ interface InventoryItem {
   salesLast30: number;
   dailyAvg: number;
   daysLeft: number | null;
+  stockoutDate: string | null;
+  recommendedRestock: number;
 }
 
 const spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
@@ -201,13 +203,15 @@ export default function InventoryPage() {
                   <TableCell align="right" sx={thSx}>최근30일 판매량</TableCell>
                   <TableCell align="right" sx={thSx}>일평균 판매량</TableCell>
                   <TableCell align="right" sx={thSx}>예상 소진일</TableCell>
+                  <TableCell align="right" sx={thSx}>예측 품절일</TableCell>
+                  <TableCell align="right" sx={thSx}>입고권장수량</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
                   Array.from({ length: 6 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: 8 }).map((_, j) => (
                         <TableCell key={j} sx={{ borderBottom: '1px solid #f1f3f5', py: 1.2 }}>
                           <Skeleton variant="rounded" height={14} width={j === 0 ? '80%' : '60%'} />
                         </TableCell>
@@ -216,7 +220,7 @@ export default function InventoryPage() {
                   ))
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4, color: '#adb5bd', fontSize: '0.85rem', borderBottom: 'none' }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: '#adb5bd', fontSize: '0.85rem', borderBottom: 'none' }}>
                       재고 데이터 없음
                     </TableCell>
                   </TableRow>
@@ -238,6 +242,16 @@ export default function InventoryPage() {
                         <TableCell align="right" sx={tdSx}>{item.dailyAvg.toFixed(1)}</TableCell>
                         <TableCell align="right" sx={tdSx}>
                           <DaysLeftCell daysLeft={item.daysLeft} />
+                        </TableCell>
+                        <TableCell align="right" sx={tdSx}>
+                          {item.stockoutDate
+                            ? item.stockoutDate.slice(5).replace('-', '/')
+                            : <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd' }}>-</Typography>}
+                        </TableCell>
+                        <TableCell align="right" sx={tdSx}>
+                          {item.recommendedRestock > 1
+                            ? <Box sx={{ display: 'inline-block', px: 1, py: 0.3, borderRadius: 1, backgroundColor: '#fff5f5', color: '#e03131', fontWeight: 600, fontSize: '0.85rem' }}>{item.recommendedRestock}개</Box>
+                            : <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd' }}>-</Typography>}
                         </TableCell>
                       </TableRow>
                     );
