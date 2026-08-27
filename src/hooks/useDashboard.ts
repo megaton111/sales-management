@@ -82,12 +82,14 @@ export default function useDashboard(
   const totalSales = useMemo(() => {
     let marketplace = 0;
     let rocketGrowth = 0;
+    let smartstore = 0;
     for (const row of filteredSales) {
       const amount = Number(row.total_sale_amount);
       if (row.channel === 'marketplace') marketplace += amount;
       else if (row.channel === 'rocket_growth') rocketGrowth += amount;
+      else if (row.channel === 'smartstore') smartstore += amount;
     }
-    return { marketplace, rocketGrowth, total: marketplace + rocketGrowth };
+    return { marketplace, rocketGrowth, smartstore, total: marketplace + rocketGrowth + smartstore };
   }, [filteredSales]);
 
   const totalExpenses = useMemo(() => {

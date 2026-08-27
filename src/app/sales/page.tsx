@@ -92,6 +92,7 @@ export default function SalesPage() {
 
   const [isLocal, setIsLocal] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [naverBatchLoading, setNaverBatchLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success'
   });
@@ -100,6 +101,39 @@ export default function SalesPage() {
     setIsLocal(window.location.hostname === 'localhost');
   }, []);
 
+
+  const handleNaverBatchSync = async () => {
+    if (!currentStore) return;
+    setNaverBatchLoading(true);
+    try {
+      const lastDay = new Date(year, month, 0).getDate();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const endDate = new Date(year, month - 1, lastDay);
+      const actualEnd = endDate < yesterday ? endDate : yesterday;
+      const dateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
+      const dateTo = `${actualEnd.getFullYear()}-${String(actualEnd.getMonth() + 1).padStart(2, '0')}-${String(actualEnd.getDate()).padStart(2, '0')}`;
+
+      const res = await fetch('/api/sales/naver/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dateFrom, dateTo, storeId: currentStore.id }),
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        setSnackbar({ open: true, message: '스마트스토어 동기화 완료', severity: 'success' });
+        window.location.reload();
+      } else {
+        setSnackbar({ open: true, message: json.error || '동기화 실패', severity: 'error' });
+      }
+    } catch {
+      setSnackbar({ open: true, message: '동기화 중 오류 발생', severity: 'error' });
+    } finally {
+      setNaverBatchLoading(false);
+    }
+  };
 
   const lastDate = new Date(year, month, 0).getDate();
   const days = Array.from({ length: lastDate }, (_, i) => i + 1);
@@ -514,36 +548,66 @@ export default function SalesPage() {
             ))}
           </ButtonGroup>
           {isLocal && (
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={handleBatchSync}
-              disabled={batchLoading || !currentStore}
-              startIcon={
-                <SyncIcon
-                  sx={{
-                    fontSize: '1rem !important',
-                    ...(batchLoading && {
-                      animation: 'spin 1s linear infinite',
-                      '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
-                    }),
-                  }}
-                />
-              }
-              sx={{
-                ml: 'auto',
-                borderColor: '#dee2e6',
-                color: '#495057',
-                fontSize: '0.8rem',
-                fontWeight: 500,
-                borderRadius: 2,
-                px: 1.5,
-                '&:hover': { borderColor: '#adb5bd', backgroundColor: '#f8f9fa' },
-                '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#adb5bd' },
-              }}
-            >
-              {batchLoading ? '동기화 중...' : '매출 동기화'}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleNaverBatchSync}
+                disabled={naverBatchLoading || !currentStore}
+                startIcon={
+                  <SyncIcon
+                    sx={{
+                      fontSize: '1rem !important',
+                      ...(naverBatchLoading && {
+                        animation: 'spin 1s linear infinite',
+                        '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
+                      }),
+                    }}
+                  />
+                }
+                sx={{
+                  borderColor: '#03c75a33',
+                  color: '#03c75a',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  borderRadius: 2,
+                  px: 1.5,
+                  '&:hover': { borderColor: '#03c75a', backgroundColor: '#f0fdf4' },
+                  '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#adb5bd' },
+                }}
+              >
+                {naverBatchLoading ? '동기화 중...' : '스마트스토어'}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleBatchSync}
+                disabled={batchLoading || !currentStore}
+                startIcon={
+                  <SyncIcon
+                    sx={{
+                      fontSize: '1rem !important',
+                      ...(batchLoading && {
+                        animation: 'spin 1s linear infinite',
+                        '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
+                      }),
+                    }}
+                  />
+                }
+                sx={{
+                  borderColor: '#dee2e6',
+                  color: '#495057',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  borderRadius: 2,
+                  px: 1.5,
+                  '&:hover': { borderColor: '#adb5bd', backgroundColor: '#f8f9fa' },
+                  '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#adb5bd' },
+                }}
+              >
+                {batchLoading ? '동기화 중...' : '쿠팡 동기화'}
+              </Button>
+            </Box>
           )}
         </Box>
 

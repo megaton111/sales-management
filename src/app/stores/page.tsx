@@ -74,6 +74,7 @@ export default function StoresPage() {
   const [saving, setSaving] = useState(false);
 
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [testingPlatform, setTestingPlatform] = useState<string | null>(null);
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success',
@@ -138,6 +139,26 @@ export default function StoresPage() {
       setSnackbar({ open: true, message: '스토어가 삭제되었습니다', severity: 'success' });
     } else {
       setSnackbar({ open: true, message: '삭제에 실패했습니다', severity: 'error' });
+    }
+  };
+
+  const handleTestConnection = async (platform: string) => {
+    if (!activeStoreId) return;
+    setTestingPlatform(platform);
+    const testUrl = platform === 'smartstore'
+      ? `/api/stores/integrations/naver/test?storeId=${activeStoreId}`
+      : null;
+    if (!testUrl) {
+      setTestingPlatform(null);
+      return;
+    }
+    const res = await fetch(testUrl);
+    const json = await res.json();
+    setTestingPlatform(null);
+    if (res.ok && json.success) {
+      setSnackbar({ open: true, message: '연결 성공! API 인증이 정상적으로 작동합니다.', severity: 'success' });
+    } else {
+      setSnackbar({ open: true, message: json.error || '연결 실패', severity: 'error' });
     }
   };
 
@@ -262,6 +283,16 @@ export default function StoresPage() {
                         <Typography sx={{ fontSize: '0.72rem', color: '#adb5bd', mr: 1 }}>
                           {new Date(integration.updated_at).toLocaleDateString('ko-KR')} 수정
                         </Typography>
+                        {integration.platform === 'smartstore' && (
+                          <Button
+                            size="small"
+                            disabled={testingPlatform === integration.platform}
+                            onClick={() => handleTestConnection(integration.platform)}
+                            sx={{ fontSize: '0.72rem', color: '#868e96', border: '1px solid #dee2e6', borderRadius: 1.5, px: 1, py: 0.3, minWidth: 0, mr: 0.5 }}
+                          >
+                            {testingPlatform === integration.platform ? '테스트 중...' : '연결 테스트'}
+                          </Button>
+                        )}
                         <IconButton size="small" onClick={() => openDialog(integration.platform)} sx={{ color: '#868e96' }}>
                           <EditIcon sx={{ fontSize: 16 }} />
                         </IconButton>

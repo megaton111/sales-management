@@ -95,40 +95,25 @@ export default function DashboardPage() {
         {/* 매출 섹션 */}
         <Paper sx={{ ...cardSx, mb: 1 }}>
           <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>매출 현황</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
-            <Box>
-              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>총 매출</Typography>
-              {loading ? (
-                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
-              ) : (
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
-                  {formatNumber(totalSales.total)}
-                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-                </Typography>
-              )}
-            </Box>
-            <Box>
-              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>판매자배송</Typography>
-              {loading ? (
-                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
-              ) : (
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
-                  {formatNumber(totalSales.marketplace)}
-                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-                </Typography>
-              )}
-            </Box>
-            <Box>
-              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>로켓그로스</Typography>
-              {loading ? (
-                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
-              ) : (
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
-                  {formatNumber(totalSales.rocketGrowth)}
-                  <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
-                </Typography>
-              )}
-            </Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+            {[
+              { label: '총 매출', value: totalSales.total },
+              { label: '판매자배송', value: totalSales.marketplace },
+              { label: '로켓그로스', value: totalSales.rocketGrowth },
+              { label: '스마트스토어', value: totalSales.smartstore },
+            ].map(({ label, value }) => (
+              <Box key={label}>
+                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{label}</Typography>
+                {loading ? (
+                  <Skeleton variant="rounded" width={120} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+                ) : (
+                  <Typography sx={{ fontSize: '1.4rem', fontWeight: 700, color: '#1a1a1b', letterSpacing: '-0.02em' }}>
+                    {formatNumber(value)}
+                    <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
+                  </Typography>
+                )}
+              </Box>
+            ))}
           </Box>
         </Paper>
 
