@@ -286,7 +286,7 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string, creds: Co
         if (seenItemKeys.has(itemKey)) continue;
         seenItemKeys.add(itemKey);
 
-        const saleAmount = item.orderPrice - item.coupangDiscount;
+        const saleAmount = item.orderPrice - item.discountPrice - item.coupangDiscount;
         daily.totalSalePrice += saleAmount;
         addItem(daily, item.vendorItemId, item.sellerProductName.trim().replace(/\s+/g, ' '), item.vendorItemName, item.shippingCount, saleAmount);
 
@@ -325,6 +325,8 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string, creds: Co
     }
   }
 
+  const seenRgKeys = new Set<string>();
+
   for (const order of rgOrders) {
     const paidMs = Number(order.paidAt);
     const kstDate = new Date(paidMs + 9 * 60 * 60 * 1000);
@@ -334,6 +336,9 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string, creds: Co
     daily.orderCount++;
 
     for (const item of order.orderItems) {
+      const rgKey = `${order.orderId}_${item.vendorItemId}`;
+      if (seenRgKeys.has(rgKey)) continue;
+      seenRgKeys.add(rgKey);
       const unitPrice = Math.floor(Number(item.unitSalesPrice));
       const totalPrice = unitPrice * item.salesQuantity;
       daily.totalSalePrice += totalPrice;

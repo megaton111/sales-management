@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
       const { error: detailError } = await supabase
         .from('daily_order_details')
-        .insert(detailRows);
+        .upsert(detailRows, { onConflict: 'store_id,sale_date,channel,order_id,vendor_item_id' });
 
       if (detailError) throw detailError;
     }
