@@ -74,7 +74,7 @@ export default function SalesPage() {
   const { costMap } = useProductProfits(currentStore?.id ?? null);
   const { totalAmount: totalExpenses } = useExpenses(currentStore?.id ?? null, year, month);
 
-  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalProfit, loading } = useMonthlySales(
+  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, loading } = useMonthlySales(
     currentStore?.id ?? null, year, month, costMap
   );
 
@@ -637,11 +637,12 @@ export default function SalesPage() {
 
           {/* 중: 서브 그리드 */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
               {[
-                { label: `${month}월 매출총합`, value: totalMarketplace + totalRocketGrowth, onClick: () => fetchMonthly(year, month, 'all', `${month}월 전체`) },
+                { label: `${month}월 매출총합`, value: totalMarketplace + totalRocketGrowth + totalSmartstore, onClick: () => fetchMonthly(year, month, 'all', `${month}월 전체`) },
                 { label: '판매자배송', value: totalMarketplace, onClick: () => fetchMonthly(year, month, 'marketplace', `${month}월 판매자배송`) },
                 { label: '로켓그로스', value: totalRocketGrowth, onClick: () => fetchMonthly(year, month, 'rocket_growth', `${month}월 로켓그로스`) },
+                { label: '스마트스토어', value: totalSmartstore, onClick: () => fetchMonthly(year, month, 'smartstore', `${month}월 스마트스토어`) },
               ].map(({ label, value, onClick }) => (
                 <Paper key={label} elevation={0} onClick={onClick} sx={cardSx}>
                   <Typography sx={{ color: '#868e96', fontSize: '0.75rem', mb: 0.5 }}>{label}</Typography>
@@ -708,10 +709,12 @@ export default function SalesPage() {
             const daySales = dailySalesMap.get(day);
             const mpAmount = daySales?.marketplace ?? 0;
             const rgAmount = daySales?.rocketGrowth ?? 0;
+            const ssAmount = daySales?.smartstore ?? 0;
             const mpProfit = daySales?.marketplaceProfit ?? 0;
             const rgProfit = daySales?.rocketGrowthProfit ?? 0;
-            const totalAmount = mpAmount + rgAmount;
-            const totalDayProfit = mpProfit + rgProfit;
+            const ssProfit = daySales?.smartstoreProfit ?? 0;
+            const totalAmount = mpAmount + rgAmount + ssAmount;
+            const totalDayProfit = mpProfit + rgProfit + ssProfit;
             const isSelectedDay = day === selectedDay;
             const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === day;
             const isFuture = new Date(year, month - 1, day) > today;
@@ -753,11 +756,12 @@ export default function SalesPage() {
                   </Box>
                 ) : (
                   [
-                    { label: '판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false },
-                    { label: '로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false },
-                    { label: '매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true },
-                    { label: '순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true },
-                  ].map(({ label, bg, value, color, bold }) => (
+                    { label: '판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false, hide: mpAmount === 0 },
+                    { label: '로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false, hide: rgAmount === 0 },
+                    { label: '스스', bg: '#03c75a', value: ssAmount, color: '#495057', bold: false, hide: ssAmount === 0 },
+                    { label: '매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true, hide: false },
+                    { label: '순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true, hide: false },
+                  ].filter(item => !item.hide).map(({ label, bg, value, color, bold }) => (
                     <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: bg, borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
                       <Typography sx={{ fontSize: '0.63rem', fontWeight: bold ? 600 : 400, color, lineHeight: 1.4 }}>{formatNumber(value)}</Typography>

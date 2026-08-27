@@ -23,8 +23,10 @@ interface SaleItem {
 interface DaySales {
   marketplace: number;
   rocketGrowth: number;
+  smartstore: number;
   marketplaceProfit: number;
   rocketGrowthProfit: number;
+  smartstoreProfit: number;
 }
 
 function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData): number {
@@ -68,11 +70,13 @@ export default function useMonthlySales(
     const map = new Map<number, DaySales>();
     for (const row of rows) {
       const day = new Date(row.sale_date).getDate();
-      const existing = map.get(day) || { marketplace: 0, rocketGrowth: 0, marketplaceProfit: 0, rocketGrowthProfit: 0 };
+      const existing = map.get(day) || { marketplace: 0, rocketGrowth: 0, smartstore: 0, marketplaceProfit: 0, rocketGrowthProfit: 0, smartstoreProfit: 0 };
       if (row.channel === 'marketplace') {
         existing.marketplace += Number(row.total_sale_amount);
       } else if (row.channel === 'rocket_growth') {
         existing.rocketGrowth += Number(row.total_sale_amount);
+      } else if (row.channel === 'smartstore') {
+        existing.smartstore += Number(row.total_sale_amount);
       }
       map.set(day, existing);
     }
@@ -93,6 +97,8 @@ export default function useMonthlySales(
           existing.marketplaceProfit += itemProfit;
         } else if (item.channel === 'rocket_growth') {
           existing.rocketGrowthProfit += itemProfit;
+        } else if (item.channel === 'smartstore') {
+          existing.smartstoreProfit += itemProfit;
         }
       }
     }
@@ -110,14 +116,19 @@ export default function useMonthlySales(
     [rows]
   );
 
+  const totalSmartstore = useMemo(() =>
+    rows.filter(r => r.channel === 'smartstore').reduce((sum, r) => sum + Number(r.total_sale_amount), 0),
+    [rows]
+  );
+
   const totalProfit = useMemo(() => {
     if (!costMap || costMap.size === 0) return 0;
     let sum = 0;
     for (const [, daySales] of dailySalesMap) {
-      sum += daySales.marketplaceProfit + daySales.rocketGrowthProfit;
+      sum += daySales.marketplaceProfit + daySales.rocketGrowthProfit + daySales.smartstoreProfit;
     }
     return sum;
   }, [dailySalesMap, costMap]);
 
-  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalProfit, loading, refetch: fetchData };
+  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, loading, refetch: fetchData };
 }
