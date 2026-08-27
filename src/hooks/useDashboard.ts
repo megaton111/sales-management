@@ -19,6 +19,7 @@ interface SaleItem {
 interface ExpenseRow {
   expense_date: string;
   amount: number;
+  expense_type?: string;
 }
 
 function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData): number {
@@ -185,5 +186,17 @@ export default function useDashboard(
       .sort((a, b) => b.quantity - a.quantity);
   }, [filteredItems]);
 
-  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, currentMonth, selectedMonth: month };
+  const expenseByType = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of expenses) {
+      if (!row.expense_type) continue;
+      map.set(row.expense_type, (map.get(row.expense_type) || 0) + Number(row.amount));
+    }
+    const total = Array.from(map.values()).reduce((a, b) => a + b, 0);
+    return Array.from(map.entries())
+      .map(([type, amount]) => ({ type, amount, ratio: total > 0 ? amount / total : 0 }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [expenses]);
+
+  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, currentMonth, selectedMonth: month };
 }

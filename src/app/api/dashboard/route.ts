@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
       fetchAll(supabase, 'daily_sales_items', 'sale_date, channel, product_name, quantity, unit_profit, sale_amount', {
         storeId, dateColumn: 'sale_date', startDate, endDate,
       }),
-      fetchAll(supabase, 'expenses', 'expense_date, amount', {
+      fetchAll(supabase, 'expenses', 'expense_date, amount, expense_type', {
         storeId, dateColumn: 'expense_date', startDate, endDate,
       }),
     ]);

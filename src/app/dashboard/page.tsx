@@ -48,7 +48,7 @@ export default function DashboardPage() {
   const yearOptions = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
   const { costMap } = useProductProfits(currentStore?.id ?? null);
-  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking } = useDashboard(
+  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType } = useDashboard(
     currentStore?.id ?? null, year, costMap, month
   );
 
@@ -229,6 +229,52 @@ export default function DashboardPage() {
                   <Bar dataKey="profit" fill="#1864ab" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+            </Box>
+          )}
+        </Paper>
+
+        {/* 지출 통계 */}
+        <Paper sx={{ ...cardSx, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96' }}>지출 통계</Typography>
+            {!loading && expenseByType.length > 0 && (
+              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd' }}>
+                {year}년 연간 합계 {expenseByType.reduce((s, e) => s + e.amount, 0).toLocaleString('ko-KR')}원
+              </Typography>
+            )}
+          </Box>
+          {loading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Skeleton variant="rounded" width={90} height={14} sx={{ borderRadius: 1, flexShrink: 0 }} />
+                  <Skeleton variant="rounded" sx={{ flex: 1, height: 8, borderRadius: 4 }} />
+                  <Skeleton variant="rounded" width={80} height={14} sx={{ borderRadius: 1, flexShrink: 0 }} />
+                </Box>
+              ))}
+            </Box>
+          ) : expenseByType.length === 0 ? (
+            <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd', textAlign: 'center', py: 3 }}>
+              지출 데이터 없음
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.4 }}>
+              {expenseByType.map((item) => (
+                <Box key={item.type} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Typography sx={{ width: 110, fontSize: '0.8rem', color: '#495057', flexShrink: 0 }}>
+                    {item.type}
+                  </Typography>
+                  <Box sx={{ flex: 1, height: 8, backgroundColor: '#f1f3f5', borderRadius: 4, overflow: 'hidden' }}>
+                    <Box sx={{ width: `${item.ratio * 100}%`, height: '100%', backgroundColor: '#74c0fc', borderRadius: 4 }} />
+                  </Box>
+                  <Typography sx={{ width: 110, textAlign: 'right', fontSize: '0.8rem', color: '#1a1a1b', fontWeight: 600, flexShrink: 0 }}>
+                    {item.amount.toLocaleString('ko-KR')}원
+                  </Typography>
+                  <Typography sx={{ width: 38, textAlign: 'right', fontSize: '0.75rem', color: '#adb5bd', flexShrink: 0 }}>
+                    {(item.ratio * 100).toFixed(1)}%
+                  </Typography>
+                </Box>
+              ))}
             </Box>
           )}
         </Paper>
