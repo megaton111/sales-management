@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { fetchNaverOrders, NaverCredentials } from '@/lib/naver-api';
 
+// 상품명+옵션명으로 안정적인 숫자 ID 생성 (vendor_item_id NOT NULL 대응)
+function hashId(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+  }
+  return Math.abs(hash) || 1;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { dateFrom, dateTo, storeId } = await request.json();
@@ -58,7 +67,7 @@ export async function POST(request: NextRequest) {
         store_id: storeId,
         sale_date: date,
         channel,
-        vendor_item_id: null,
+        vendor_item_id: hashId(`${item.productName}|${item.optionName}`),
         product_name: item.productName,
         vendor_item_name: item.optionName || item.productName,
         quantity: item.quantity,
