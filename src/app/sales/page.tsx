@@ -22,11 +22,17 @@ import Alert from '@mui/material/Alert';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
 import SyncIcon from '@mui/icons-material/Sync';
 import Collapse from '@mui/material/Collapse';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useStore } from '@/contexts/StoreContext';
+import { createClient } from '@/lib/supabase-browser';
 import useMonthlySales from '@/hooks/useMonthlySales';
 import useDailySalesDetail from '@/hooks/useDailySalesDetail';
 import useProductProfits from '@/hooks/useProductProfits';
@@ -96,6 +102,207 @@ export default function SalesPage() {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success'
   });
+
+  const [importDialog, setImportDialog] = useState(false);
+  const [importChannel, setImportChannel] = useState<'marketplace' | 'rocket_growth'>('marketplace');
+  const [importText, setImportText] = useState('');
+  const [importing, setImporting] = useState(false);
+
+  const parseCoupangReport = (text: string, channel: 'marketplace' | 'rocket_growth') => {
+    const parseNum = (s: string) => Number((s ?? '').replace(/,/g, '').trim()) || 0;
+    const allLines = text.trim().split('\n').map(line => line.split('\t'));
+
+    // 포맷 자동 감지: 헤더 행에 '발생일(결제완료일)' 포함 → 판매수수료 리포트, 아니면 판매자배송 리포트
+    const headerLine = allLines.find(cols => cols.some(c => c.trim().length > 0)) ?? [];
+    const isFeeReport = headerLine.some(c => c.includes('발생일(결제완료일)') || c.trim() === '거래유형');
+
+    const rows = isFeeReport
+      ? allLines.filter(cols => cols.length > 27 && cols[6]?.trim() === '주문 정산')
+      : allLines.filter(cols => {
+          const taxType = cols[1]?.trim();
+          const optionId = cols[4]?.trim();
+          const cancelDate = cols[22]?.trim();
+          return taxType && optionId && parseNum(optionId) > 0 && !cancelDate;
+        });
+
+    const dailyMap = new Map<string, { total_sale_amount: number; order_count: number }>();
+    const itemMap = new Map<string, { sale_date: string; vendor_item_id: number; product_name: string; vendor_item_name: string; quantity: number; sale_amount: number; unit_profit: number }>();
+    const orderRows: { order_id: string; sale_date: string; vendor_item_id: number; paid_at: string; quantity: number; unit_price: number; sale_amount: number }[] = [];
+
+    for (const cols of rows) {
+      let sale_date: string, order_id: string, vendor_item_id: number, product_name: string, vendor_item_name: string;
+      let unit_price: number, quantity: number, sale_amount: number, unit_profit: number;
+
+      if (isFeeReport) {
+        sale_date = cols[3]?.trim();
+        order_id = cols[5]?.trim();
+        vendor_item_id = parseNum(cols[11]);
+        product_name = cols[13]?.trim();
+        vendor_item_name = cols[14]?.trim();
+        unit_price = parseNum(cols[15]);
+        quantity = parseNum(cols[16]);
+        sale_amount = parseNum(cols[19]);
+        const settlement = parseNum(cols[23]);
+        const commission = parseNum(cols[26]);
+        const commission_vat = parseNum(cols[27]);
+        unit_profit = quantity > 0 ? Math.round((settlement - commission - commission_vat) / quantity) : 0;
+      } else {
+        sale_date = cols[19]?.trim();
+        order_id = cols[0]?.trim();
+        vendor_item_id = parseNum(cols[4]);
+        product_name = cols[3]?.trim();
+        vendor_item_name = cols[5]?.trim();
+        unit_price = parseNum(cols[6]);
+        quantity = parseNum(cols[7]);
+        sale_amount = parseNum(cols[9]) - parseNum(cols[10]);
+        const settlement = parseNum(cols[17]);
+        unit_profit = quantity > 0 ? Math.round(settlement / quantity) : 0;
+      }
+
+      if (!sale_date || !vendor_item_id) continue;
+
+      const daily = dailyMap.get(sale_date) ?? { total_sale_amount: 0, order_count: 0 };
+      daily.total_sale_amount += sale_amount;
+      daily.order_count += 1;
+      dailyMap.set(sale_date, daily);
+
+      const itemKey = `${sale_date}_${vendor_item_id}`;
+      const existing = itemMap.get(itemKey);
+      if (existing) {
+        existing.quantity += quantity;
+        existing.sale_amount += sale_amount;
+      } else {
+        itemMap.set(itemKey, { sale_date, vendor_item_id, product_name, vendor_item_name, quantity, sale_amount, unit_profit });
+      }
+
+      const paid_at = channel === 'rocket_growth'
+        ? String(new Date(sale_date + 'T00:00:00+09:00').getTime())
+        : sale_date + 'T00:00:00';
+      orderRows.push({ order_id, sale_date, vendor_item_id, paid_at, quantity, unit_price, sale_amount });
+    }
+    return { dailyMap, items: Array.from(itemMap.values()), orderRows };
+  };
+
+  const handleImport = async () => {
+    if (!currentStore || !importText.trim()) return;
+    setImporting(true);
+    try {
+      const { dailyMap, items, orderRows } = parseCoupangReport(importText, importChannel);
+      if (items.length === 0) {
+        setSnackbar({ open: true, message: '가져올 데이터가 없습니다. 붙여넣기 내용을 확인해주세요.', severity: 'error' });
+        return;
+      }
+      const supabase = createClient();
+      const storeId = currentStore.id;
+      const channel = importChannel;
+      const dates = Array.from(dailyMap.keys());
+
+      // 기존 주문번호 조회 → 신규 주문만 필터
+      const { data: existingOrderData } = await supabase
+        .from('daily_order_details')
+        .select('order_id')
+        .eq('store_id', storeId)
+        .eq('channel', channel)
+        .in('sale_date', dates);
+      const existingOrderIds = new Set((existingOrderData || []).map(o => String(o.order_id)));
+      const newOrderRows = orderRows.filter(o => !existingOrderIds.has(o.order_id));
+      const newOrderDates = new Set(newOrderRows.map(o => o.sale_date));
+
+      // 신규 주문이 있는 날짜만 daily_sales_items 재집계
+      if (newOrderDates.size > 0) {
+        // 기존 order_details 로드 → 신규 주문과 합산
+        const { data: existingOrders } = await supabase
+          .from('daily_order_details')
+          .select('sale_date, vendor_item_id, quantity, sale_amount, unit_price')
+          .eq('store_id', storeId)
+          .eq('channel', channel)
+          .in('sale_date', Array.from(newOrderDates));
+
+        const mergedItemMap = new Map<string, { sale_date: string; vendor_item_id: number; product_name: string; vendor_item_name: string; quantity: number; sale_amount: number; unit_profit: number }>();
+
+        // 기존 items 중 해당 날짜 것들 기반으로 시작
+        for (const item of items) {
+          if (!newOrderDates.has(item.sale_date)) continue;
+          mergedItemMap.set(`${item.sale_date}_${item.vendor_item_id}`, { ...item });
+        }
+        // 기존 DB 주문 중 이번 paste에 없는 것 추가
+        for (const o of (existingOrders || [])) {
+          const key = `${o.sale_date}_${o.vendor_item_id}`;
+          if (!mergedItemMap.has(key)) {
+            mergedItemMap.set(key, {
+              sale_date: o.sale_date,
+              vendor_item_id: Number(o.vendor_item_id),
+              product_name: '',
+              vendor_item_name: '',
+              quantity: o.quantity,
+              sale_amount: o.sale_amount,
+              unit_profit: o.unit_price ?? 0,
+            });
+          }
+        }
+
+        for (const sale_date of newOrderDates) {
+          const dayTotal = { total_sale_amount: 0, order_count: 0 };
+          for (const [key, item] of mergedItemMap) {
+            if (!key.startsWith(sale_date)) continue;
+            dayTotal.total_sale_amount += item.sale_amount;
+            dayTotal.order_count += item.quantity;
+          }
+          await supabase.from('daily_sales').upsert({
+            store_id: storeId, sale_date, channel,
+            total_sale_amount: dayTotal.total_sale_amount,
+            total_settlement_amount: 0,
+            order_count: newOrderRows.filter(o => o.sale_date === sale_date).length + (existingOrders || []).filter(o => o.sale_date === sale_date).length,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'store_id,sale_date,channel' });
+
+          await supabase.from('daily_sales_items').delete()
+            .eq('store_id', storeId).eq('sale_date', sale_date).eq('channel', channel);
+        }
+
+        const itemsToInsert = Array.from(mergedItemMap.values()).filter(i => i.product_name || i.quantity > 0);
+        if (itemsToInsert.length > 0) {
+          await supabase.from('daily_sales_items').insert(itemsToInsert.map(item => ({
+            store_id: storeId,
+            sale_date: item.sale_date,
+            channel,
+            vendor_item_id: item.vendor_item_id,
+            product_name: item.product_name,
+            vendor_item_name: item.vendor_item_name,
+            quantity: item.quantity,
+            sale_amount: item.sale_amount,
+            settlement_amount: 0,
+            unit_profit: item.unit_profit,
+            sale_type: 'SALE',
+          })));
+        }
+      }
+
+      if (newOrderRows.length > 0) {
+        await supabase.from('daily_order_details').insert(newOrderRows.map(o => ({
+          store_id: storeId,
+          sale_date: o.sale_date,
+          channel,
+          vendor_item_id: o.vendor_item_id,
+          order_id: o.order_id,
+          paid_at: o.paid_at,
+          quantity: o.quantity,
+          unit_price: o.unit_price,
+          sale_amount: o.sale_amount,
+        })));
+      }
+
+      const dateCount = dailyMap.size;
+      setImportDialog(false);
+      setImportText('');
+      setSnackbar({ open: true, message: `${dateCount}일치 데이터 가져오기 완료`, severity: 'success' });
+      window.location.reload();
+    } catch (e) {
+      setSnackbar({ open: true, message: `가져오기 실패: ${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
+    } finally {
+      setImporting(false);
+    }
+  };
 
   useEffect(() => {
     setIsLocal(window.location.hostname === 'localhost');
@@ -717,8 +924,27 @@ export default function SalesPage() {
               </Button>
             ))}
           </ButtonGroup>
+          <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setImportDialog(true)}
+              disabled={!currentStore}
+              sx={{
+                borderColor: '#dee2e6',
+                color: '#495057',
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                borderRadius: 2,
+                px: 1.5,
+                '&:hover': { borderColor: '#adb5bd', backgroundColor: '#f8f9fa' },
+              }}
+            >
+              엑셀 가져오기
+            </Button>
+          </Box>
           {isLocal && (
-            <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
                 variant="outlined"
                 size="small"
@@ -810,8 +1036,8 @@ export default function SalesPage() {
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
               {[
                 { label: `${month}월 매출총합`, value: totalMarketplace + totalRocketGrowth + totalSmartstore, onClick: () => fetchMonthly(year, month, 'all', `${month}월 전체`) },
-                { label: '판매자배송', value: totalMarketplace, onClick: () => fetchMonthly(year, month, 'marketplace', `${month}월 판매자배송`) },
-                { label: '로켓그로스', value: totalRocketGrowth, onClick: () => fetchMonthly(year, month, 'rocket_growth', `${month}월 로켓그로스`) },
+                { label: '쿠팡(판매자배송)', value: totalMarketplace, onClick: () => fetchMonthly(year, month, 'marketplace', `${month}월 쿠팡(판매자배송)`) },
+                { label: '쿠팡(로켓)', value: totalRocketGrowth, onClick: () => fetchMonthly(year, month, 'rocket_growth', `${month}월 쿠팡(로켓)`) },
                 { label: '스마트스토어', value: totalSmartstore, onClick: () => fetchMonthly(year, month, 'smartstore', `${month}월 스마트스토어`) },
               ].map(({ label, value, onClick }) => (
                 <Paper key={label} elevation={0} onClick={onClick} sx={cardSx}>
@@ -962,7 +1188,7 @@ export default function SalesPage() {
                     {mpItems.length > 0 && (
                       <Box>
                         <Typography sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.85rem', color: '#495057' }}>
-                          {detailLabel ? `${detailLabel} 판매자배송` : `${month}월 ${selectedDay}일 판매자배송`}
+                          {detailLabel ? `${detailLabel} 쿠팡(판매자배송)` : `${month}월 ${selectedDay}일 쿠팡(판매자배송)`}
                         </Typography>
                         {isMonthly ? renderItemTable(mpItems) : renderMpTable(mpItems)}
                       </Box>
@@ -970,7 +1196,7 @@ export default function SalesPage() {
                     {rgItems.length > 0 && (
                       <Box>
                         <Typography sx={{ mb: 0.5, fontWeight: 600, fontSize: '0.85rem', color: '#495057' }}>
-                          {detailLabel ? `${detailLabel} 로켓그로스` : `${month}월 ${selectedDay}일 로켓그로스`}
+                          {detailLabel ? `${detailLabel} 쿠팡(로켓)` : `${month}월 ${selectedDay}일 쿠팡(로켓)`}
                         </Typography>
                         {isMonthly ? renderItemTable(rgItems) : renderRgTable(rgItems)}
                       </Box>
@@ -1011,6 +1237,55 @@ export default function SalesPage() {
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
       </Snackbar>
+
+      {/* 쿠팡 Wing 엑셀 가져오기 다이얼로그 */}
+      <Dialog open={importDialog} onClose={() => setImportDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontSize: '1rem' }}>쿠팡 판매수수료 리포트 가져오기</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5, color: '#495057' }}>채널</Typography>
+              <Select size="small" value={importChannel} onChange={(e) => setImportChannel(e.target.value as 'marketplace' | 'rocket_growth')} fullWidth>
+                <MenuItem value="marketplace">쿠팡(판매자배송)</MenuItem>
+                <MenuItem value="rocket_growth">쿠팡(로켓)</MenuItem>
+              </Select>
+            </Box>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5, color: '#495057' }}>
+                쿠팡 Wing → 정산관리 → 판매수수료 리포트에서 데이터를 복사해 붙여넣어 주세요
+              </Typography>
+              <TextField
+                multiline
+                rows={10}
+                fullWidth
+                placeholder="헤더 포함하여 붙여넣기..."
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                size="small"
+                sx={{ fontFamily: 'monospace', fontSize: '0.78rem' }}
+              />
+              {importText && (() => {
+                const rows = importText.trim().split('\n').filter(l => l.split('\t')[6]?.trim() === '주문 정산');
+                return rows.length > 0 ? (
+                  <Typography variant="caption" sx={{ color: '#2b8a3e', mt: 0.5, display: 'block' }}>
+                    {rows.length}건 인식됨
+                  </Typography>
+                ) : (
+                  <Typography variant="caption" sx={{ color: '#adb5bd', mt: 0.5, display: 'block' }}>
+                    주문 정산 데이터가 없습니다
+                  </Typography>
+                );
+              })()}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setImportDialog(false); setImportText(''); }} size="small">취소</Button>
+          <Button onClick={handleImport} variant="contained" size="small" disabled={importing || !importText.trim()}>
+            {importing ? '가져오는 중...' : '가져오기'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
     </>
   );

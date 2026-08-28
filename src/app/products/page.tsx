@@ -958,8 +958,8 @@ export default function ProductsPage() {
                 onChange={(e) => setChannelType(e.target.value)}
                 fullWidth
               >
-                <MenuItem value="판매자배송">판매자배송</MenuItem>
-                <MenuItem value="로켓그로스">로켓그로스</MenuItem>
+                <MenuItem value="판매자배송">쿠팡(판매자배송)</MenuItem>
+                <MenuItem value="로켓그로스">쿠팡(로켓)</MenuItem>
                 <MenuItem value="스마트스토어">스마트스토어</MenuItem>
               </Select>
             </Box>

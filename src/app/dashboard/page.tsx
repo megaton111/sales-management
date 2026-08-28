@@ -98,8 +98,8 @@ export default function DashboardPage() {
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
             {[
               { label: '총 매출', value: totalSales.total },
-              { label: '판매자배송', value: totalSales.marketplace },
-              { label: '로켓그로스', value: totalSales.rocketGrowth },
+              { label: '쿠팡(판매자배송)', value: totalSales.marketplace },
+              { label: '쿠팡(로켓)', value: totalSales.rocketGrowth },
               { label: '스마트스토어', value: totalSales.smartstore },
             ].map(({ label, value }) => (
               <Box key={label}>
