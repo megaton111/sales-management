@@ -71,8 +71,8 @@ const columns: Column[] = [
   { label: "원가", key: "unit_cost", numeric: true, suffix: "원" },
   { label: "입출고요금", key: "warehouse_fee", numeric: true, editable: true, suffix: "원" },
   { label: "배송비", key: "shipping_fee", numeric: true, editable: true, suffix: "원" },
-  { label: "바코드 작업비", key: "barcode_fee", numeric: true, suffix: "원" },
-  { label: "박스비", key: "box_fee", numeric: true, suffix: "원" },
+  { label: "바코드 작업비", key: "barcode_fee", numeric: true, editable: true, suffix: "원" },
+  { label: "박스비", key: "box_fee", numeric: true, editable: true, suffix: "원" },
   { label: "기타비용", key: "other_fee", numeric: true, editable: true, suffix: "원" },
 ];
 
@@ -100,7 +100,7 @@ export default function ProductsPage() {
     productName: string;
   } | null>(null);
   const [mappingDialog, setMappingDialog] = useState<{ open: boolean; productName: string } | null>(null);
-  const [coupangNames, setCoupangNames] = useState<string[]>([]);
+  const [marketNames, setCoupangNames] = useState<string[]>([]);
   const [mappings, setMappings] = useState<Record<string, string[]>>({});
   const [selectedMappings, setSelectedMappings] = useState<string[]>([]);
   const [memoValues, setMemoValues] = useState<Record<string, string>>({});
@@ -860,15 +860,15 @@ export default function ProductsPage() {
         fullWidth
       >
         <DialogTitle sx={{ fontSize: "1rem" }}>
-          쿠팡 상품명 매핑 — {mappingDialog?.productName}
+          상품명 매핑 — {mappingDialog?.productName}
         </DialogTitle>
         <DialogContent>
           <Autocomplete
-            options={coupangNames.filter((n) => !selectedMappings.includes(n))}
+            options={marketNames.filter((n) => !selectedMappings.includes(n))}
             onChange={(_, value) => { if (value) handleAddMapping(value); }}
             value={null}
             renderInput={(params) => (
-              <TextField {...params} size="small" placeholder="쿠팡 상품명 검색하여 추가" />
+              <TextField {...params} size="small" placeholder="상품명 검색하여 추가" />
             )}
             sx={{ mt: 1, mb: 2 }}
           />
@@ -876,7 +876,7 @@ export default function ProductsPage() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem" }}>쿠팡 상품명</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem" }}>상품명</TableCell>
                   <TableCell sx={{ width: 40 }} />
                 </TableRow>
               </TableHead>
@@ -960,6 +960,7 @@ export default function ProductsPage() {
               >
                 <MenuItem value="판매자배송">판매자배송</MenuItem>
                 <MenuItem value="로켓그로스">로켓그로스</MenuItem>
+                <MenuItem value="스마트스토어">스마트스토어</MenuItem>
               </Select>
             </Box>
             <Typography variant="body2" color="text.secondary">

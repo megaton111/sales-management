@@ -118,6 +118,7 @@ export interface NaverDailyData {
     totalSaleAmount: number;
     orderCount: number;
     items: Map<string, { productName: string; optionName: string; quantity: number; saleAmount: number }>;
+    orders: { productOrderId: string; paymentDate: string; quantity: number; unitPrice: number; saleAmount: number; productName: string; optionName: string }[];
   }>;
 }
 
@@ -136,7 +137,7 @@ function processProductOrder(item: any, dailyMap: NaverDailyData['dailyMap']) {
 
   const key = `${payDate}_smartstore`;
   if (!dailyMap.has(key)) {
-    dailyMap.set(key, { totalSaleAmount: 0, orderCount: 0, items: new Map() });
+    dailyMap.set(key, { totalSaleAmount: 0, orderCount: 0, items: new Map(), orders: [] });
   }
   const daily = dailyMap.get(key)!;
 
@@ -156,6 +157,16 @@ function processProductOrder(item: any, dailyMap: NaverDailyData['dailyMap']) {
   } else {
     daily.items.set(productKey, { productName, optionName, quantity: qty, saleAmount: amount });
   }
+
+  daily.orders.push({
+    productOrderId: String(productOrder.productOrderId ?? ''),
+    paymentDate,
+    quantity: qty,
+    unitPrice: Math.round(amount / qty),
+    saleAmount: amount,
+    productName,
+    optionName,
+  });
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));

@@ -85,6 +85,34 @@ export async function POST(request: NextRequest) {
         if (itemsError) throw itemsError;
       }
 
+      // daily_order_details 저장 (SS 주문별 상세)
+      await supabase
+        .from('daily_order_details')
+        .delete()
+        .eq('store_id', storeId)
+        .eq('sale_date', date)
+        .eq('channel', channel);
+
+      const orderRows = daily.orders.map(o => ({
+        store_id: storeId,
+        sale_date: date,
+        channel,
+        vendor_item_id: hashId(`${o.productName}|${o.optionName}`),
+        order_id: o.productOrderId,
+        paid_at: o.paymentDate,
+        quantity: o.quantity,
+        unit_price: o.unitPrice,
+        sale_amount: o.saleAmount,
+      }));
+
+      if (orderRows.length > 0) {
+        const { error: orderError } = await supabase.from('daily_order_details').insert(orderRows);
+        if (orderError) {
+          console.error('[SS batch] daily_order_details insert error:', orderError, orderRows[0]);
+          throw new Error(`daily_order_details 저장 실패: ${orderError.message}`);
+        }
+      }
+
       totalDays++;
     }
 

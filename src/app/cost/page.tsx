@@ -16,8 +16,17 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Container from "@mui/material/Container";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import { createClient } from "@/lib/supabase-browser";
 import { useStore } from "@/contexts/StoreContext";
+import { generateProductId } from "@/utils/generateId";
 
 type Product = {
   id: string;
@@ -142,12 +151,66 @@ function OptionsRow({ productId, optionsMap }: { productId: string; optionsMap: 
 
 export default function CostPage() {
   const router = useRouter();
-  const { currentStore, loading: storeLoading } = useStore();
+  const { currentStore, stores, loading: storeLoading } = useStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [averages, setAverages] = useState<Record<string, number>>({});
   const [optionsMap, setOptionsMap] = useState<Record<string, ProductOption[]>>({});
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState(0);
+
+  const [copyDialog, setCopyDialog] = useState(false);
+  const [copyTargetStoreId, setCopyTargetStoreId] = useState<number | "">("");
+  const [copySelected, setCopySelected] = useState<string[]>([]);
+  const [copying, setCopying] = useState(false);
+
+  const otherStores = stores.filter((s) => s.id !== currentStore?.id);
+
+  const handleCopyConfirm = async () => {
+    if (!currentStore || !copyTargetStoreId || copySelected.length === 0) return;
+    setCopying(true);
+    const supabase = createClient();
+    try {
+      for (const name of copySelected) {
+        const srcProducts = products.filter((p) => p.name === name);
+        for (const src of srcProducts) {
+          const newId = generateProductId();
+          const { error } = await supabase.from("products").insert({
+            ...src,
+            id: newId,
+            store_id: copyTargetStoreId,
+          });
+          if (error) throw error;
+
+          if (src.has_options) {
+            const opts = optionsMap[src.id] || [];
+            if (opts.length > 0) {
+              await supabase.from("product_options").insert(
+                opts.map((o) => ({ ...o, id: generateProductId(), product_id: newId }))
+              );
+            }
+          }
+        }
+
+        const avg = averages[name];
+        if (avg != null) {
+          await supabase.from("product_averages").upsert({
+            store_id: copyTargetStoreId,
+            name,
+            average_unit_cost: avg,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "store_id,name" });
+        }
+      }
+      setCopyDialog(false);
+      setCopySelected([]);
+      setCopyTargetStoreId("");
+      alert(`${copySelected.join(", ")} → ${stores.find(s => s.id === copyTargetStoreId)?.name} 복사 완료`);
+    } catch (e) {
+      alert(`복사 실패: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setCopying(false);
+    }
+  };
 
   useEffect(() => {
     if (!currentStore) return;
@@ -269,10 +332,15 @@ export default function CostPage() {
 
   return (
     <Box sx={{ px: 3, py: 3 }}>
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-start", mb: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
         <Button variant="outlined" size="small" onClick={() => router.push("/cost/register")} sx={{ borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}>
           상품 추가
         </Button>
+        {otherStores.length > 0 && (
+          <Button variant="outlined" size="small" onClick={() => setCopyDialog(true)} sx={{ borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}>
+            다른 스토어로 복사
+          </Button>
+        )}
       </Box>
 
       <Tabs
@@ -393,6 +461,62 @@ export default function CostPage() {
           매입 추가
         </Button>
       </Box>
+
+      {/* 다른 스토어로 복사 다이얼로그 */}
+      <Dialog open={copyDialog} onClose={() => setCopyDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: "1rem" }}>다른 스토어로 복사</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5, color: "#495057" }}>대상 스토어</Typography>
+              <Select
+                size="small"
+                fullWidth
+                value={copyTargetStoreId}
+                onChange={(e) => setCopyTargetStoreId(e.target.value as number)}
+                displayEmpty
+              >
+                <MenuItem value="" disabled>스토어 선택</MenuItem>
+                {otherStores.map((s) => (
+                  <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
+                ))}
+              </Select>
+            </Box>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5, color: "#495057" }}>복사할 상품</Typography>
+              {productNames.map((name) => (
+                <FormControlLabel
+                  key={name}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={copySelected.includes(name)}
+                      onChange={(e) =>
+                        setCopySelected((prev) =>
+                          e.target.checked ? [...prev, name] : prev.filter((n) => n !== name)
+                        )
+                      }
+                    />
+                  }
+                  label={<Typography variant="body2">{name}</Typography>}
+                  sx={{ display: "flex" }}
+                />
+              ))}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCopyDialog(false)} size="small">취소</Button>
+          <Button
+            onClick={handleCopyConfirm}
+            variant="contained"
+            size="small"
+            disabled={copying || !copyTargetStoreId || copySelected.length === 0}
+          >
+            {copying ? "복사 중..." : "복사"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
