@@ -247,7 +247,17 @@ export default function SalesPage() {
     }
   };
 
-  const renderRgTable = (tableItems: typeof items) => (
+  const renderRgTable = (tableItems: typeof items) => {
+    const totalProfit = tableItems.reduce((sum, item) => {
+      const pKey = item.product_name.trim().replace(/\s+/g, ' ');
+      const vKey = (item.vendor_item_name || '').trim().replace(/\s+/g, ' ');
+      const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+      const itemProfit = cost
+        ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
+        : item.unit_profit * item.quantity;
+      return sum + itemProfit;
+    }, 0);
+    return (
     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
       <Table size="small">
         <TableHead>
@@ -338,12 +348,28 @@ export default function SalesPage() {
               </Fragment>
             );
           })}
+          <TableRow sx={{ backgroundColor: '#f8f9fa', borderTop: '2px solid #e9ecef' }}>
+            <TableCell colSpan={4} sx={{ ...tdSx, fontWeight: 700, color: '#495057' }}>합계</TableCell>
+            <TableCell />
+            <TableCell align="right" sx={{ ...tdSx, fontWeight: 700, color: totalProfit > 0 ? '#2b8a3e' : '#e03131' }}>{formatNumber(totalProfit)}원</TableCell>
+          </TableRow>
         </TableBody>
       </Table>
     </TableContainer>
-  );
+    );
+  };
 
-  const renderMpTable = (tableItems: typeof items) => (
+  const renderMpTable = (tableItems: typeof items) => {
+    const totalProfit = tableItems.reduce((sum, item) => {
+      const pKey = item.product_name.trim().replace(/\s+/g, ' ');
+      const vKey = (item.vendor_item_name || '').trim().replace(/\s+/g, ' ');
+      const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+      const itemProfit = cost
+        ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
+        : item.unit_profit * item.quantity;
+      return sum + itemProfit;
+    }, 0);
+    return (
     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
       <Table size="small">
         <TableHead>
@@ -448,10 +474,16 @@ export default function SalesPage() {
               </Fragment>
             );
           })}
+          <TableRow sx={{ backgroundColor: '#f8f9fa', borderTop: '2px solid #e9ecef' }}>
+            <TableCell colSpan={4} sx={{ ...tdSx, fontWeight: 700, color: '#495057' }}>합계</TableCell>
+            <TableCell />
+            <TableCell align="right" sx={{ ...tdSx, fontWeight: 700, color: totalProfit > 0 ? '#2b8a3e' : '#e03131' }}>{formatNumber(totalProfit)}원</TableCell>
+          </TableRow>
         </TableBody>
       </Table>
     </TableContainer>
-  );
+    );
+  };
 
   const mergeByVendorItem = (list: typeof items) => {
     const merged = new Map<number, typeof items[0]>();
@@ -469,13 +501,13 @@ export default function SalesPage() {
 
   const mpItems = isMonthly
     ? mergeByVendorItem(items.filter(i => i.channel === 'marketplace'))
-    : items.filter(i => i.channel === 'marketplace');
+    : items.filter(i => i.channel === 'marketplace').sort((a, b) => b.quantity - a.quantity);
   const rgItems = isMonthly
     ? mergeByVendorItem(items.filter(i => i.channel === 'rocket_growth'))
-    : items.filter(i => i.channel === 'rocket_growth');
+    : items.filter(i => i.channel === 'rocket_growth').sort((a, b) => b.quantity - a.quantity);
   const ssItems = isMonthly
     ? mergeByVendorItem(items.filter(i => i.channel === 'smartstore'))
-    : items.filter(i => i.channel === 'smartstore');
+    : items.filter(i => i.channel === 'smartstore').sort((a, b) => b.quantity - a.quantity);
 
   const renderItemTable = (tableItems: typeof items) => (
     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
