@@ -114,7 +114,7 @@ export default function ProductsPage() {
   const [bundleDialog, setBundleDialog] = useState<{ open: boolean; baseName: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
   const [bundleMultiplier, setBundleMultiplier] = useState(2);
   const [channelDialog, setChannelDialog] = useState<{ open: boolean; baseName: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
-  const [channelType, setChannelType] = useState("판매자배송");
+  const [channelType, setChannelType] = useState("쿠팡(판매자배송)");
   const [optionDialog, setOptionDialog] = useState<{ open: boolean; parentName: string; baseName: string } | null>(null);
   const [optionInfoMap, setOptionInfoMap] = useState<Record<string, { size: string; avgUnitCost: number }[]>>({});
   const [costHistory, setCostHistory] = useState<{ open: boolean; productName: string; multiplier: number; items: { created_at: string; average_unit_cost: number }[]; currentAvg: number } | null>(null);
@@ -336,7 +336,7 @@ export default function ProductsPage() {
 
         // 채널 순서 정렬
         const sortedChannels = [...allChannelNames].sort((a, b) => {
-          const order = ["로켓그로스", "판매자배송", "스마트스토어"];
+          const order = ["쿠팡(로켓그로스)", "쿠팡(판매자배송)", "스마트스토어"];
           const ai = order.indexOf(a);
           const bi = order.indexOf(b);
           if (ai === -1 && bi === -1) return a.localeCompare(b);
@@ -665,7 +665,7 @@ export default function ProductsPage() {
     }
 
     setChannelDialog(null);
-    setChannelType("판매자배송");
+    setChannelType("쿠팡(판매자배송)");
     fetchData();
   };
 
@@ -1094,8 +1094,8 @@ export default function ProductsPage() {
               <Typography variant="body2" sx={{ mb: 0.5, color: "#495057" }}>채널 선택</Typography>
               <Select size="small" value={channelType} onChange={(e) => setChannelType(e.target.value)} fullWidth>
                 {[
-                  { value: "판매자배송", label: "쿠팡(판매자배송)" },
-                  { value: "로켓그로스", label: "쿠팡(로켓)" },
+                  { value: "쿠팡(판매자배송)", label: "쿠팡(판매자배송)" },
+                  { value: "쿠팡(로켓그로스)", label: "쿠팡(로켓그로스)" },
                   { value: "스마트스토어", label: "스마트스토어" },
                 ].map(({ value, label }) => {
                   const alreadyExists = sales.some(
