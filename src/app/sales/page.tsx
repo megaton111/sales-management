@@ -80,7 +80,7 @@ export default function SalesPage() {
   const { costMap } = useProductProfits(currentStore?.id ?? null);
   const { totalAmount: totalExpenses } = useExpenses(currentStore?.id ?? null, year, month);
 
-  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, loading } = useMonthlySales(
+  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, loading, refetch } = useMonthlySales(
     currentStore?.id ?? null, year, month, costMap
   );
 
@@ -295,8 +295,9 @@ export default function SalesPage() {
       const dateCount = dailyMap.size;
       setImportDialog(false);
       setImportText('');
+      await refetch();
+      fetchMonthly(year, month, 'all', `${month}월 전체`);
       setSnackbar({ open: true, message: `${dateCount}일치 데이터 가져오기 완료`, severity: 'success' });
-      window.location.reload();
     } catch (e) {
       setSnackbar({ open: true, message: `가져오기 실패: ${e instanceof Error ? e.message : String(e)}`, severity: 'error' });
     } finally {
@@ -330,8 +331,9 @@ export default function SalesPage() {
 
       const json = await res.json();
       if (res.ok) {
+        await refetch();
+        fetchMonthly(year, month, 'all', `${month}월 전체`);
         setSnackbar({ open: true, message: '스마트스토어 동기화 완료', severity: 'success' });
-        window.location.reload();
       } else {
         setSnackbar({ open: true, message: json.error || '동기화 실패', severity: 'error' });
       }
@@ -379,8 +381,9 @@ export default function SalesPage() {
 
       const json = await res.json();
       if (res.ok) {
+        await refetch();
+        fetchMonthly(year, month, 'all', `${month}월 전체`);
         setSnackbar({ open: true, message: `매출 데이터 동기화 완료`, severity: 'success' });
-        window.location.reload();
       } else {
         setSnackbar({ open: true, message: json.error || '동기화 실패', severity: 'error' });
       }

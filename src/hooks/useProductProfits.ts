@@ -46,7 +46,10 @@ export default function useProductProfits(storeId: number | null) {
 
       const CHANNEL_LABEL_MAP: Record<string, string> = {
         '판매자배송': 'marketplace',
+        '쿠팡(판매자배송)': 'marketplace',
         '로켓그로스': 'rocket_growth',
+        '쿠팡(로켓그로스)': 'rocket_growth',
+        '스마트스토어': 'smartstore',
       };
 
       const map = new Map<string, ProductCostData>();

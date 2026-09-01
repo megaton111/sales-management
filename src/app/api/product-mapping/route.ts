@@ -45,12 +45,13 @@ export async function POST(request: NextRequest) {
     if (mappingItems.length > 0) {
       const { error: insertError } = await supabase
         .from('product_name_mapping')
-        .insert(
+        .upsert(
           mappingItems.map((item: { coupangProductName: string }) => ({
             store_id: storeId,
             coupang_product_name: item.coupangProductName,
             product_sale_name: productSaleName,
-          }))
+          })),
+          { onConflict: 'store_id,coupang_product_name' }
         );
 
       if (insertError) throw insertError;
