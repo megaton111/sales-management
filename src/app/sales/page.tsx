@@ -80,7 +80,7 @@ export default function SalesPage() {
   const { costMap } = useProductProfits(currentStore?.id ?? null);
   const { totalAmount: totalExpenses } = useExpenses(currentStore?.id ?? null, year, month);
 
-  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, loading, refetch } = useMonthlySales(
+  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, loading, refetch } = useMonthlySales(
     currentStore?.id ?? null, year, month, costMap
   );
 
@@ -381,6 +381,10 @@ export default function SalesPage() {
 
       const json = await res.json();
       if (res.ok) {
+        setExpandedOrderKey(null);
+        setOrderDetailsMap({});
+        setExpandedRgKey(null);
+        setRgOrderDetailsMap({});
         await refetch();
         fetchMonthly(year, month, 'all', `${month}월 전체`);
         setSnackbar({ open: true, message: `매출 데이터 동기화 완료`, severity: 'success' });
@@ -398,11 +402,11 @@ export default function SalesPage() {
   const isMonthly = !!detailLabel;
 
   const [expandedOrderKey, setExpandedOrderKey] = useState<string | null>(null);
-  const [orderDetailsMap, setOrderDetailsMap] = useState<Record<string, { orderId: number; paidAt: string; status: string; quantity: number; salesPrice: number; orderPrice: number; discountPrice: number; coupangDiscount: number; saleAmount: number }[]>>({});
+  const [orderDetailsMap, setOrderDetailsMap] = useState<Record<string, { orderId: number; paidAt: string; status: string; quantity: number; salesPrice: number; orderPrice: number; discountPrice: number; coupangDiscount: number; saleAmount: number; isRefunded: boolean }[]>>({});
   const [orderLoadingKey, setOrderLoadingKey] = useState<string | null>(null);
 
   const [expandedRgKey, setExpandedRgKey] = useState<string | null>(null);
-  const [rgOrderDetailsMap, setRgOrderDetailsMap] = useState<Record<string, { orderId: number; paidAt: string; quantity: number; unitSalesPrice: number; saleAmount: number }[]>>({});
+  const [rgOrderDetailsMap, setRgOrderDetailsMap] = useState<Record<string, { orderId: number; paidAt: string; quantity: number; unitSalesPrice: number; saleAmount: number; isRefunded: boolean }[]>>({});
   const [rgOrderLoadingKey, setRgOrderLoadingKey] = useState<string | null>(null);
 
   const [expandedSsKey, setExpandedSsKey] = useState<string | null>(null);
@@ -556,18 +560,21 @@ export default function SalesPage() {
                               {orders.map((order) => {
                                 const kstDate = new Date(Number(order.paidAt) + 9 * 60 * 60 * 1000);
                                 const paidAtStr = kstDate.toISOString().slice(5, 16).replace('T', ' ');
-                                const orderMargin = cost
+                                const orderMargin = cost && !order.isRefunded
                                   ? Math.round(order.saleAmount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * order.quantity
                                   : null;
+                                const strikeSx = order.isRefunded ? { textDecoration: 'line-through', opacity: 0.55 } : {};
                                 return (
-                                  <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' } }}>
-                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{order.orderId}</TableCell>
-                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{paidAtStr}</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{order.quantity}건</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{formatNumber(order.unitSalesPrice)}원</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600 }}>{formatNumber(order.saleAmount)}원</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
-                                      {orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
+                                  <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' }, ...(order.isRefunded ? { backgroundColor: '#fff5f5' } : {}) }}>
+                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057', ...strikeSx }}>{order.orderId}{order.isRefunded && <Box component="span" sx={{ ml: 0.5, fontSize: '0.65rem', color: '#e03131', fontWeight: 700, textDecoration: 'none' }}>반품</Box>}</TableCell>
+                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057', ...strikeSx }}>{paidAtStr}</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>{order.quantity}건</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>{formatNumber(order.unitSalesPrice)}원</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : 'inherit' }}>
+                                      {order.isRefunded ? '0원' : `${formatNumber(order.saleAmount)}원`}
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
+                                      {order.isRefunded ? '0원' : orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -782,28 +789,31 @@ export default function SalesPage() {
                               </TableHead>
                               <TableBody>
                                 {orders.map((order) => {
-                                  const orderMargin = cost
+                                  const orderMargin = cost && !order.isRefunded
                                     ? Math.round(order.saleAmount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * order.quantity
                                     : null;
+                                  const strikeSx = order.isRefunded ? { textDecoration: 'line-through', opacity: 0.55 } : {};
                                   return (
-                                    <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' } }}>
-                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{order.orderId}</TableCell>
-                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>
+                                    <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' }, ...(order.isRefunded ? { backgroundColor: '#fff5f5' } : {}) }}>
+                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057', ...strikeSx }}>{order.orderId}{order.isRefunded && <Box component="span" sx={{ ml: 0.5, fontSize: '0.65rem', color: '#e03131', fontWeight: 700, textDecoration: 'none' }}>반품</Box>}</TableCell>
+                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057', ...strikeSx }}>
                                         {order.paidAt ? order.paidAt.slice(5, 16).replace('T', ' ') : '-'}
                                       </TableCell>
-                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>
+                                      <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>
                                         <Box component="span" sx={{ px: 0.8, py: 0.2, borderRadius: 1, backgroundColor: '#e9ecef', color: '#495057', fontSize: '0.7rem' }}>
                                           {STATUS_LABELS[order.status] ?? order.status}
                                         </Box>
                                       </TableCell>
-                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{order.quantity}건</TableCell>
-                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{formatNumber(order.salesPrice)}원</TableCell>
-                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{formatNumber(order.orderPrice)}원</TableCell>
-                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#868e96' }}>{order.discountPrice > 0 ? `-${formatNumber(order.discountPrice)}원` : '-'}</TableCell>
-                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#868e96' }}>{order.coupangDiscount > 0 ? `-${formatNumber(order.coupangDiscount)}원` : '-'}</TableCell>
-                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600 }}>{formatNumber(order.saleAmount)}원</TableCell>
-                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
-                                        {orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>{order.quantity}건</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>{formatNumber(order.salesPrice)}원</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>{formatNumber(order.orderPrice)}원</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#868e96', ...strikeSx }}>{order.discountPrice > 0 ? `-${formatNumber(order.discountPrice)}원` : '-'}</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#868e96', ...strikeSx }}>{order.coupangDiscount > 0 ? `-${formatNumber(order.coupangDiscount)}원` : '-'}</TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : 'inherit' }}>
+                                        {order.isRefunded ? '0원' : `${formatNumber(order.saleAmount)}원`}
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
+                                        {order.isRefunded ? '0원' : orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
                                       </TableCell>
                                     </TableRow>
                                   );
@@ -1014,7 +1024,7 @@ export default function SalesPage() {
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'stretch' }}>
           {/* 좌: 실순이익 히어로 카드 */}
           <Paper elevation={0} sx={{
-            flex: '0 0 200px',
+            flex: '0 0 240px',
             p: 2.5,
             borderRadius: 3,
             border: `1.5px solid ${loading ? '#e9ecef' : netProfit >= 0 ? '#b2f2bb' : '#ffc9c9'}`,
@@ -1025,9 +1035,9 @@ export default function SalesPage() {
           }}>
             <Typography sx={{ color: '#868e96', fontSize: '0.75rem', mb: 1.5, fontWeight: 500 }}>{month}월 실순이익</Typography>
             {loading ? (
-              <Skeleton variant="rounded" width={140} height={38} sx={{ borderRadius: 1.5 }} />
+              <Skeleton variant="rounded" width={160} height={38} sx={{ borderRadius: 1.5 }} />
             ) : (
-              <Typography sx={{ fontWeight: 800, fontSize: '2rem', color: netProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: '1.8rem', color: netProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.03em', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
                 {formatNumber(netProfit)}
                 <Typography component="span" sx={{ fontSize: '0.85rem', fontWeight: 400, color: netProfit >= 0 ? '#74c48a' : '#fa8080', ml: 0.5 }}>원</Typography>
               </Typography>
@@ -1056,7 +1066,7 @@ export default function SalesPage() {
                 </Paper>
               ))}
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, flex: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, flex: 1 }}>
               <Paper elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <Typography sx={{ color: '#868e96', fontSize: '0.75rem', mb: 0.5 }}>
                   {month}월 순이익
@@ -1068,6 +1078,17 @@ export default function SalesPage() {
                   <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
                     {formatNumber(totalProfit)}
                     <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
+                  </Typography>
+                )}
+              </Paper>
+              <Paper elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <Typography sx={{ color: '#868e96', fontSize: '0.75rem', mb: 0.5 }}>{month}월 반품</Typography>
+                {loading ? (
+                  <Skeleton variant="rounded" width={100} height={22} sx={{ borderRadius: 1, mt: 0.5 }} />
+                ) : (
+                  <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: totalRefundCount > 0 ? '#e03131' : '#1a1a1b', letterSpacing: '-0.02em' }}>
+                    {totalRefundCount}
+                    <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
                   </Typography>
                 )}
               </Paper>
@@ -1112,6 +1133,9 @@ export default function SalesPage() {
             const mpProfit = daySales?.marketplaceProfit ?? 0;
             const rgProfit = daySales?.rocketGrowthProfit ?? 0;
             const ssProfit = daySales?.smartstoreProfit ?? 0;
+            const mpRefundCount = daySales?.mpRefundCount ?? 0;
+            const rgRefundCount = daySales?.rgRefundCount ?? 0;
+            const hasRefund = mpRefundCount > 0 || rgRefundCount > 0;
             const totalAmount = mpAmount + rgAmount + ssAmount;
             const totalDayProfit = mpProfit + rgProfit + ssProfit;
             const isSelectedDay = day === selectedDay;
@@ -1154,18 +1178,34 @@ export default function SalesPage() {
                     ))}
                   </Box>
                 ) : (
-                  [
-                    { label: '판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false, hide: mpAmount === 0 },
-                    { label: '로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false, hide: rgAmount === 0 },
-                    { label: '스스', bg: '#03c75a', value: ssAmount, color: '#495057', bold: false, hide: ssAmount === 0 },
-                    { label: '매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true, hide: false },
-                    { label: '순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true, hide: false },
-                  ].filter(item => !item.hide).map(({ label, bg, value, color, bold }) => (
-                    <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: bg, borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
-                      <Typography sx={{ fontSize: '0.63rem', fontWeight: bold ? 600 : 400, color, lineHeight: 1.4 }}>{formatNumber(value)}</Typography>
-                    </Box>
-                  ))
+                  <>
+                    {[
+                      { label: '스스', bg: '#03c75a', value: ssAmount, color: '#495057', bold: false },
+                      { label: '쿠팡판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false },
+                      { label: '쿠팡로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false },
+                      { label: '총매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true },
+                      { label: '총순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true },
+                    ].map(({ label, bg, value, color, bold }) => (
+                      <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: bg, borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
+                        <Typography sx={{ fontSize: '0.63rem', fontWeight: bold ? 600 : 400, color, lineHeight: 1.4 }}>{formatNumber(value)}</Typography>
+                      </Box>
+                    ))}
+                    {hasRefund && (
+                      <>
+                        <Box sx={{ borderTop: '1px solid #f1f3f5', mt: 0.3, mb: 0.1 }} />
+                        {[
+                          { label: '쿠팡판매반품', value: mpRefundCount, hide: mpRefundCount === 0 },
+                          { label: '쿠팡로켓반품', value: rgRefundCount, hide: rgRefundCount === 0 },
+                        ].filter(item => !item.hide).map(({ label, value }) => (
+                          <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: '#e03131', borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
+                            <Typography sx={{ fontSize: '0.63rem', color: '#e03131', lineHeight: 1.4 }}>{value}건</Typography>
+                          </Box>
+                        ))}
+                      </>
+                    )}
+                  </>
                 )}
               </Paper>
             );

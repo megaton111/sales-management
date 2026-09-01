@@ -27,6 +27,8 @@ interface DaySales {
   marketplaceProfit: number;
   rocketGrowthProfit: number;
   smartstoreProfit: number;
+  mpRefundCount: number;
+  rgRefundCount: number;
 }
 
 function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData): number {
@@ -70,13 +72,17 @@ export default function useMonthlySales(
     const map = new Map<number, DaySales>();
     for (const row of rows) {
       const day = new Date(row.sale_date).getDate();
-      const existing = map.get(day) || { marketplace: 0, rocketGrowth: 0, smartstore: 0, marketplaceProfit: 0, rocketGrowthProfit: 0, smartstoreProfit: 0 };
+      const existing = map.get(day) || { marketplace: 0, rocketGrowth: 0, smartstore: 0, marketplaceProfit: 0, rocketGrowthProfit: 0, smartstoreProfit: 0, mpRefundCount: 0, rgRefundCount: 0 };
       if (row.channel === 'marketplace') {
         existing.marketplace += Number(row.total_sale_amount);
       } else if (row.channel === 'rocket_growth') {
         existing.rocketGrowth += Number(row.total_sale_amount);
       } else if (row.channel === 'smartstore') {
         existing.smartstore += Number(row.total_sale_amount);
+      } else if (row.channel === 'mp_refund') {
+        existing.mpRefundCount += Number(row.order_count);
+      } else if (row.channel === 'rg_refund') {
+        existing.rgRefundCount += Number(row.order_count);
       }
       map.set(day, existing);
     }
@@ -132,5 +138,10 @@ export default function useMonthlySales(
     return sum;
   }, [dailySalesMap, costMap, rows]);
 
-  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, loading, refetch: fetchData };
+  const totalRefundCount = useMemo(() =>
+    rows.filter(r => r.channel === 'mp_refund' || r.channel === 'rg_refund').reduce((sum, r) => sum + Number(r.order_count), 0),
+    [rows]
+  );
+
+  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, loading, refetch: fetchData };
 }

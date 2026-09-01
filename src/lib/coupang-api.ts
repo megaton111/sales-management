@@ -426,4 +426,172 @@ export async function fetchRgInventory(creds: CoupangCredentials): Promise<RgInv
   return allData;
 }
 
-export type { OrderSheet, OrderItem, RgOrder, RgOrderItem, ChannelDailySaleData, RgInventoryItem };
+// ========== 반품요청 API (returnRequests) ==========
+
+interface ReturnRequestItem {
+  orderId: number;
+  requestAt?: string;
+  createdAt?: string;
+  returnCreatedAt?: string;
+  returnCompletedDate?: string;
+  [key: string]: unknown;
+}
+
+export interface ReturnRequestRecord {
+  orderId: number;
+  paymentId?: number;
+  receiptId?: number;
+  vendorItemId?: number;
+  shipmentBoxId?: number;
+  date: string;
+}
+
+export async function fetchReturnRequests(
+  dateFrom: string,
+  dateTo: string,
+  creds: CoupangCredentials
+): Promise<ReturnRequestRecord[]> {
+  const seenReceiptIds = new Set<number>();
+  const records: ReturnRequestRecord[] = [];
+  const path = `/v2/providers/openapi/apis/api/v6/vendors/${creds.vendor_id}/returnRequests`;
+  // UC: 반품접수, CC: 반품완료(RG 자동처리), RU: 출고중지요청, PR: 쿠팡확인요청
+  const statuses = ['UC', 'CC', 'RU', 'PR'];
+
+  for (const status of statuses) {
+    let pageNum = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const query = `createdAtFrom=${dateFrom}&createdAtTo=${dateTo}&status=${status}&cancelType=RETURN&pageSize=50&pageNum=${pageNum}`;
+      const authorization = generateHmacSignature('GET', path, query, creds);
+
+      const res = await fetchWithRetry(`${BASE_URL}${path}?${query}`, {
+        method: 'GET',
+        headers: { 'Authorization': authorization, 'Content-Type': 'application/json' },
+      });
+
+      if (!res.ok) {
+        console.error(`returnRequests[${status}] API 오류 (${res.status}): ${await res.text()}`);
+        break;
+      }
+
+      const json = await res.json();
+      const data: ReturnRequestItem[] = json.data || [];
+
+
+      for (const item of data) {
+        const receiptId = item.receiptId as number | undefined;
+        if (receiptId && seenReceiptIds.has(receiptId)) continue;
+        if (receiptId) seenReceiptIds.add(receiptId);
+
+        const dateStr = (item.createdAt || item.requestAt || item.returnCreatedAt || dateFrom) as string;
+        const date = dateStr.length > 10 ? dateStr.slice(0, 10) : dateStr;
+        const paymentId = item.paymentId as number | undefined;
+        const firstItem = (item.returnItems as Array<{ vendorItemId?: number; shipmentBoxId?: number }> | undefined)?.[0];
+        const vendorItemId = firstItem?.vendorItemId;
+        const shipmentBoxId = firstItem?.shipmentBoxId;
+        records.push({ orderId: item.orderId, paymentId, receiptId, vendorItemId, shipmentBoxId, date });
+      }
+
+      if (data.length < 50) {
+        hasMore = false;
+      } else {
+        pageNum++;
+        await sleep(300);
+      }
+    }
+
+    await sleep(200);
+  }
+
+  return records;
+}
+
+// ========== 매출내역(정산) API — 반품 데이터 ==========
+
+interface RevenueHistoryResponseItem {
+  orderId: number;
+  saleType: 'SALE' | 'REFUND';
+  saleDate: string;
+  recognitionDate: string;
+  items: {
+    vendorItemId: number;
+    productName: string;
+    quantity: number;
+    saleAmount: number;
+  }[];
+}
+
+export interface RefundRecord {
+  orderId: number;
+  date: string;
+  amount: number;
+}
+
+export async function fetchRevenueRefunds(
+  dateFrom: string,
+  dateTo: string,
+  creds: CoupangCredentials
+): Promise<RefundRecord[]> {
+  const records: RefundRecord[] = [];
+  const path = `/v2/providers/openapi/apis/api/v1/revenue-history`;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let chunkStart = new Date(dateFrom);
+  const finalEnd = new Date(dateTo);
+
+  while (chunkStart < today && chunkStart <= finalEnd) {
+    const chunkEnd = new Date(chunkStart);
+    chunkEnd.setDate(chunkEnd.getDate() + 30);
+    if (chunkEnd >= today) chunkEnd.setTime(today.getTime() - 86400000);
+    if (chunkEnd > finalEnd) chunkEnd.setTime(finalEnd.getTime());
+    if (chunkEnd < chunkStart) break;
+
+    const from = chunkStart.toISOString().split('T')[0];
+    const to = chunkEnd.toISOString().split('T')[0];
+
+    let token = '';
+    let hasMore = true;
+
+    while (hasMore) {
+      let query = `vendorId=${creds.vendor_id}&recognitionDateFrom=${from}&recognitionDateTo=${to}&maxPerPage=50&token=${token}`;
+
+      const authorization = generateHmacSignature('GET', path, query, creds);
+      const res = await fetchWithRetry(`${BASE_URL}${path}?${query}`, {
+        method: 'GET',
+        headers: { 'Authorization': authorization, 'Content-Type': 'application/json' },
+      });
+
+      if (!res.ok) {
+        console.error(`revenue-history API 오류 (${res.status}): ${await res.text()}`);
+        break;
+      }
+
+      const json = await res.json();
+      for (const record of (json.data || []) as RevenueHistoryResponseItem[]) {
+        if (record.saleType !== 'REFUND') continue;
+        records.push({
+          orderId: record.orderId,
+          date: record.recognitionDate,
+          amount: (record.items || []).reduce((sum, i) => sum + (i.saleAmount || 0), 0),
+        });
+      }
+
+      if (json.hasNext) {
+        token = json.nextToken;
+        await sleep(300);
+      } else {
+        hasMore = false;
+      }
+    }
+
+    chunkStart = new Date(chunkEnd);
+    chunkStart.setDate(chunkStart.getDate() + 1);
+  }
+
+  return records;
+}
+
+export type { OrderSheet, OrderItem, RgOrder, RgOrderItem, ChannelDailySaleData, RgInventoryItem, ReturnRequestItem };

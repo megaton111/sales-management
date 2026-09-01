@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('daily_order_details')
-      .select('order_id, paid_at, status, quantity, sales_price, order_price, discount_price, coupon_discount, sale_amount')
+      .select('order_id, paid_at, status, quantity, sales_price, order_price, discount_price, coupon_discount, sale_amount, is_refunded')
       .eq('store_id', storeId)
       .eq('sale_date', date)
       .eq('channel', 'marketplace')
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         discountPrice: r.discount_price ?? 0,
         coupangDiscount: r.coupon_discount ?? 0,
         saleAmount: r.sale_amount,
+        isRefunded: r.is_refunded ?? false,
       }))
       .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());
 
