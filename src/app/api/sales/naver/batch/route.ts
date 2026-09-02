@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       totalDays++;
     }
 
-    // 반품 동기화
+    // 반품 동기화: PAYED_DATETIME + RETURNED 상태로 조회 → 구매일 기준이라 dateFrom/dateTo 그대로 사용
     const returnRecords = await fetchNaverReturns(dateFrom, dateTo, creds);
 
     if (returnRecords.length > 0) {

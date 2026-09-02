@@ -244,7 +244,7 @@ export async function fetchNaverReturns(dateFrom: string, dateTo: string, creds:
       const json: any = await naverFetch('/v1/pay-order/seller/product-orders', creds, {
         from: toNaverDateTime(date, false),
         to: toNaverDateTime(date, true),
-        rangeType: 'CLAIM_REQUESTED_DATETIME',
+        rangeType: 'PAYED_DATETIME',
         productOrderStatuses: 'RETURNED',
         pageSize: String(PAGE_SIZE),
         page: String(page),
