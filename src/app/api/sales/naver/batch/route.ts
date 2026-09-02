@@ -116,18 +116,27 @@ export async function POST(request: NextRequest) {
       totalDays++;
     }
 
-    // 반품 동기화: PAYED_DATETIME + RETURNED 상태로 조회 → 구매일 기준이라 dateFrom/dateTo 그대로 사용
-    const returnRecords = await fetchNaverReturns(dateFrom, dateTo, creds);
+    // 반품 동기화: CLAIM_REQUESTED_DATETIME 기준이므로 구매일보다 늦게 발생
+    // → dateTo 이후 60일까지 확장해서 다음달 반품 신청 건도 포함
+    const today = new Date().toISOString().slice(0, 10);
+    const extendedTo = new Date(dateTo);
+    extendedTo.setDate(extendedTo.getDate() + 60);
+    const returnDateTo = extendedTo.toISOString().slice(0, 10) < today
+      ? extendedTo.toISOString().slice(0, 10)
+      : today;
+    const returnRecords = await fetchNaverReturns(dateFrom, returnDateTo, creds);
 
     if (returnRecords.length > 0) {
       const returnOrderIds = returnRecords.map(r => r.productOrderId);
 
-      // 반품된 주문을 DB에서 조회 (채널=smartstore, order_id 기준)
+      // 반품된 주문을 DB에서 조회 (채널=smartstore, 동기화 기간 내 주문만)
       const { data: matchedOrders } = await supabase
         .from('daily_order_details')
         .select('order_id, sale_date, vendor_item_id, quantity, sale_amount')
         .eq('store_id', storeId)
         .eq('channel', 'smartstore')
+        .gte('sale_date', dateFrom)
+        .lte('sale_date', dateTo)
         .in('order_id', returnOrderIds);
 
       const orderMap = new Map<string, { saleDate: string; vendorItemId: number; quantity: number; saleAmount: number }>();
