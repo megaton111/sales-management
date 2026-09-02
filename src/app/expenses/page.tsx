@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -25,6 +25,14 @@ import AddIcon from '@mui/icons-material/Add';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import CircularProgress from '@mui/material/CircularProgress';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useExpenses, { EXPENSE_TYPES } from '@/hooks/useExpenses';
 
@@ -54,6 +62,60 @@ function formatNumber(n: number) {
   return n.toLocaleString('ko-KR');
 }
 
+interface ParsedEntry {
+  date: string;
+  amount: number;
+}
+
+function normalizeDate(raw: string): string {
+  const s = raw.trim();
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  return s.replace(/\./g, '-');
+}
+
+function parseAdRows(rows: string[][]): ParsedEntry[] | null {
+  if (rows.length < 2) return null;
+
+  const header = rows[0].map(h => String(h ?? '').trim());
+
+  // 날짜 컬럼: 헤더에서 '날짜'/'일자' 찾거나, YYYYMMDD 값이 있는 첫 번째 컬럼으로 fallback
+  let dateIdx = header.findIndex(h => h === '날짜' || h === '일자');
+  if (dateIdx === -1) {
+    dateIdx = rows[1]?.findIndex(v => /^\d{8}$/.test(String(v ?? '').trim())) ?? -1;
+  }
+
+  // 광고비 컬럼: 총비용(VAT포함) 우선, 없으면 광고비
+  const normalHeader = header.map(h => h.replace(/\s/g, ''));
+  let costIdx = normalHeader.findIndex(h => h.includes('총비용(VAT포함)'));
+  if (costIdx === -1) costIdx = header.findIndex(h => h.trim() === '광고비');
+  // 헤더에서도 못 찾으면 날짜로부터 11번째 컬럼 (쿠팡 광고보고서 기본 구조)
+  if (costIdx === -1 && dateIdx !== -1) costIdx = dateIdx + 11;
+
+  if (dateIdx === -1 || costIdx === -1) return null;
+
+  const dailyMap = new Map<string, number>();
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rawDate = String(row[dateIdx] ?? '').trim();
+    if (!rawDate) continue;
+
+    const dateStr = normalizeDate(rawDate);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+
+    const cost = Number(String(row[costIdx] ?? '').replace(/,/g, '')) || 0;
+    if (cost <= 0) continue;
+
+    dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + cost);
+  }
+
+  if (dailyMap.size === 0) return null;
+
+  return Array.from(dailyMap.entries())
+    .map(([date, amount]) => ({ date, amount: Math.round(amount) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export default function ExpensesPage() {
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -69,7 +131,7 @@ export default function ExpensesPage() {
     if (m >= 1 && m <= 12) setMonth(m);
   }, []);
 
-  const { rows, loading, totalAmount, totalByType, addExpense, updateExpense, deleteExpense } = useExpenses(
+  const { rows, loading, totalAmount, totalByType, addExpense, updateExpense, deleteExpense, refetch } = useExpenses(
     currentStore?.id ?? null, year, month
   );
 
@@ -88,6 +150,83 @@ export default function ExpensesPage() {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success'
   });
+
+  // 광고비 가져오기 다이얼로그
+  const [adDialog, setAdDialog] = useState(false);
+  const [adTab, setAdTab] = useState(0);
+  const [pasteText, setPasteText] = useState('');
+  const [parsedEntries, setParsedEntries] = useState<ParsedEntry[] | null>(null);
+  const [parseError, setParseError] = useState('');
+  const [adImporting, setAdImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openAdDialog = () => {
+    setAdDialog(true);
+    setAdTab(0);
+    setPasteText('');
+    setParsedEntries(null);
+    setParseError('');
+  };
+
+  const closeAdDialog = () => {
+    setAdDialog(false);
+    setParsedEntries(null);
+    setParseError('');
+    setPasteText('');
+  };
+
+  const handleParsePaste = () => {
+    setParseError('');
+    const rows = pasteText.trim().split('\n').map(l => l.split('\t').map(c => c.trim()));
+    const result = parseAdRows(rows);
+    if (!result) {
+      setParseError('날짜/광고비 컬럼을 찾을 수 없습니다. 쿠팡 광고센터 → 보고서 → 집계단위 "일별"로 다운받은 파일을 붙여넣어 주세요.');
+      setParsedEntries(null);
+    } else {
+      setParsedEntries(result);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    setParseError('');
+    setParsedEntries(null);
+    try {
+      const XLSX = await import('xlsx');
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false }) as string[][];
+      const result = parseAdRows(rawRows);
+      if (!result) {
+        setParseError('날짜/광고비 컬럼을 찾을 수 없습니다. 쿠팡 광고센터 → 보고서 → 집계단위 "일별"로 다운받은 파일을 업로드해 주세요.');
+      } else {
+        setParsedEntries(result);
+      }
+    } catch {
+      setParseError('파일을 읽는 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleAdImport = async () => {
+    if (!currentStore || !parsedEntries?.length) return;
+    setAdImporting(true);
+    try {
+      const res = await fetch('/api/expenses/ad-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId: currentStore.id, entries: parsedEntries }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      await refetch();
+      closeAdDialog();
+      setSnackbar({ open: true, message: `${parsedEntries.length}일치 광고비 등록 완료`, severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: e instanceof Error ? e.message : '등록 실패', severity: 'error' });
+    } finally {
+      setAdImporting(false);
+    }
+  };
 
   const handleAdd = async () => {
     if (!newDate || !newType || !newAmount) {
@@ -156,33 +295,83 @@ export default function ExpensesPage() {
               </Button>
             ))}
           </ButtonGroup>
+          <Box sx={{ ml: 'auto' }}>
+            <Button variant="outlined" size="small" onClick={openAdDialog}
+              sx={{ borderColor: '#dee2e6', color: '#495057', fontSize: '0.8rem', fontWeight: 500 }}>
+              광고비 가져오기
+            </Button>
+          </Box>
         </Box>
 
-        {/* 총 지출 */}
+        {/* 총 지출 — 파이차트 + 리스트 */}
         <Paper sx={cardSx}>
           <Typography sx={{ color: '#adb5bd', fontSize: '0.75rem', mb: 0.5 }}>{month}월 총 지출</Typography>
           {loading ? (
-            <Skeleton variant="rounded" width={160} height={28} sx={{ borderRadius: 1, mb: 1.5 }} />
+            <Skeleton variant="rounded" width={160} height={28} sx={{ borderRadius: 1, mb: 2 }} />
           ) : (
-            <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#e03131', letterSpacing: '-0.02em', mb: 1.5 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#e03131', letterSpacing: '-0.02em', mb: 2 }}>
               {formatNumber(totalAmount)}
               <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
             </Typography>
           )}
-          {totalAmount > 0 && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {EXPENSE_TYPES.map((type) => {
-                const amount = totalByType.get(type) || 0;
-                if (amount === 0) return null;
-                return (
-                  <Box key={type} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography sx={{ fontSize: '0.8rem', color: '#868e96' }}>{type}</Typography>
-                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#495057' }}>{formatNumber(amount)}원</Typography>
-                  </Box>
-                );
-              })}
-            </Box>
-          )}
+          {totalAmount > 0 && (() => {
+            const PIE_COLORS = ['#343a40', '#495057', '#868e96', '#adb5bd', '#ced4da', '#6c757d', '#212529', '#74c0fc', '#94d82d'];
+            const chartData = EXPENSE_TYPES
+              .map((type, i) => ({ name: type, value: totalByType.get(type) || 0, color: PIE_COLORS[i % PIE_COLORS.length] }))
+              .filter(d => d.value > 0)
+              .sort((a, b) => b.value - a.value);
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const renderLabel = ({ cx, cy, midAngle, outerRadius, name }: any) => {
+              const RADIAN = Math.PI / 180;
+              const r = outerRadius + 18;
+              const x = cx + r * Math.cos(-midAngle * RADIAN);
+              const y = cy + r * Math.sin(-midAngle * RADIAN);
+              return (
+                <text x={x} y={y} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central"
+                  style={{ fontSize: '0.7rem', fill: '#495057', fontWeight: 500 }}>
+                  {name}
+                </text>
+              );
+            };
+
+            return (
+              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* 파이차트 */}
+                <Box sx={{ width: '50%', minWidth: 220, height: 240 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
+                        dataKey="value" paddingAngle={2} label={renderLabel} labelLine={{ stroke: '#dee2e6', strokeWidth: 1 }}>
+                        {chartData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [`${formatNumber(Number(value))}원`, '']}
+                        contentStyle={{ fontSize: '0.78rem', borderRadius: 8, border: '1px solid #f1f3f5' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Box>
+                {/* 리스트 */}
+                <Box sx={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {chartData.map((d) => (
+                    <Box key={d.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: d.color, flexShrink: 0 }} />
+                      <Typography sx={{ fontSize: '0.8rem', color: '#868e96', flex: 1 }}>{d.name}</Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#495057' }}>
+                        {formatNumber(d.value)}원
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', minWidth: 36, textAlign: 'right' }}>
+                        {Math.round(d.value / totalAmount * 100)}%
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            );
+          })()}
         </Paper>
 
         {/* 지출 입력 */}
@@ -273,6 +462,97 @@ export default function ExpensesPage() {
           </TableContainer>
         </Paper>
       </Box>
+
+      {/* 광고비 가져오기 다이얼로그 */}
+      <Dialog open={adDialog} onClose={closeAdDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', pb: 1 }}>쿠팡 광고비 가져오기</DialogTitle>
+        <DialogContent sx={{ pt: 0 }}>
+          <Typography sx={{ fontSize: '0.78rem', color: '#868e96', mb: 2 }}>
+            쿠팡 광고센터(ads.coupang.com) → 보고서 → 집계단위 <strong>일별</strong> 선택 후 다운로드
+          </Typography>
+
+          <Tabs value={adTab} onChange={(_, v) => { setAdTab(v); setParsedEntries(null); setParseError(''); setPasteText(''); }}
+            sx={{ mb: 2, borderBottom: '1px solid #f1f3f5', minHeight: 36,
+              '& .MuiTab-root': { fontSize: '0.8rem', minHeight: 36, fontWeight: 500 } }}>
+            <Tab label="파일 업로드" />
+            <Tab label="텍스트 붙여넣기" />
+          </Tabs>
+
+          {adTab === 0 && (
+            <Box>
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ''; }} />
+              <Box onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleFileUpload(f); }}
+                sx={{ border: '1.5px dashed #dee2e6', borderRadius: 2, p: 4, textAlign: 'center', cursor: 'pointer',
+                  backgroundColor: '#fafafa', '&:hover': { borderColor: '#adb5bd', backgroundColor: '#f8f9fa' } }}>
+                <Typography sx={{ fontSize: '0.85rem', color: '#868e96' }}>
+                  클릭하거나 파일을 여기에 드래그하세요
+                </Typography>
+                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mt: 0.5 }}>
+                  .xlsx, .xls 파일 지원
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          {adTab === 1 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography sx={{ fontSize: '0.78rem', color: '#868e96' }}>
+                엑셀 파일을 열고 전체 내용을 복사(Ctrl+A → Ctrl+C) 후 붙여넣기하세요
+              </Typography>
+              <TextField multiline rows={6} fullWidth size="small"
+                placeholder="여기에 붙여넣기 (Ctrl+V)"
+                value={pasteText}
+                onChange={(e) => { setPasteText(e.target.value); setParsedEntries(null); setParseError(''); }}
+                sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }} />
+              <Button size="small" variant="outlined" onClick={handleParsePaste} disabled={!pasteText.trim()}
+                sx={{ alignSelf: 'flex-start', borderColor: '#dee2e6', color: '#495057', fontSize: '0.8rem' }}>
+                분석하기
+              </Button>
+            </Box>
+          )}
+
+          {parseError && (
+            <Alert severity="error" sx={{ mt: 2, fontSize: '0.78rem' }}>{parseError}</Alert>
+          )}
+
+          {parsedEntries && (
+            <Box sx={{ mt: 2 }}>
+              <Typography sx={{ fontSize: '0.78rem', color: '#495057', fontWeight: 600, mb: 1 }}>
+                파싱 결과 — {parsedEntries.length}일 / 총 {formatNumber(parsedEntries.reduce((s, e) => s + e.amount, 0))}원
+              </Typography>
+              <Box sx={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #f1f3f5', borderRadius: 1 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ ...thSx, py: 0.8 }}>날짜</TableCell>
+                      <TableCell align="right" sx={{ ...thSx, py: 0.8 }}>광고비(VAT포함)</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {parsedEntries.map((e) => (
+                      <TableRow key={e.date}>
+                        <TableCell sx={{ ...tdSx, py: 0.6, fontSize: '0.78rem' }}>{e.date}</TableCell>
+                        <TableCell align="right" sx={{ ...tdSx, py: 0.6, fontSize: '0.78rem', fontWeight: 600 }}>{formatNumber(e.amount)}원</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={closeAdDialog} sx={{ color: '#868e96', fontSize: '0.85rem' }}>취소</Button>
+          <Button variant="contained" onClick={handleAdImport}
+            disabled={!parsedEntries?.length || adImporting}
+            sx={{ fontSize: '0.85rem', backgroundColor: '#343a40', '&:hover': { backgroundColor: '#212529' } }}>
+            {adImporting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : `${parsedEntries?.length ?? 0}일치 등록`}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>

@@ -10,6 +10,7 @@ interface Expense {
 }
 
 export const EXPENSE_TYPES = [
+  '쿠팡 광고비',
   '플랫폼 광고비',
   '마케팅',
   '샘플구매',
@@ -93,5 +94,5 @@ export default function useExpenses(storeId: number | null, year: number, month:
     return map;
   }, [rows]);
 
-  return { rows, loading, totalAmount, totalByType, addExpense, updateExpense, deleteExpense };
+  return { rows, loading, totalAmount, totalByType, addExpense, updateExpense, deleteExpense, refetch: fetchData };
 }
