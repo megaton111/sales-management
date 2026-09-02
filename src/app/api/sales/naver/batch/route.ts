@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { fetchNaverOrders, NaverCredentials } from '@/lib/naver-api';
+import { fetchNaverOrders, fetchNaverReturns, NaverCredentials } from '@/lib/naver-api';
 
 // 상품명+옵션명으로 안정적인 숫자 ID 생성 (vendor_item_id NOT NULL 대응)
 function hashId(str: string): number {
@@ -116,9 +116,102 @@ export async function POST(request: NextRequest) {
       totalDays++;
     }
 
+    // 반품 동기화
+    const returnRecords = await fetchNaverReturns(dateFrom, dateTo, creds);
+
+    if (returnRecords.length > 0) {
+      const returnOrderIds = returnRecords.map(r => r.productOrderId);
+
+      // 반품된 주문을 DB에서 조회 (채널=smartstore, order_id 기준)
+      const { data: matchedOrders } = await supabase
+        .from('daily_order_details')
+        .select('order_id, sale_date, vendor_item_id, quantity, sale_amount')
+        .eq('store_id', storeId)
+        .eq('channel', 'smartstore')
+        .in('order_id', returnOrderIds);
+
+      const orderMap = new Map<string, { saleDate: string; vendorItemId: number; quantity: number; saleAmount: number }>();
+      for (const o of matchedOrders || []) {
+        orderMap.set(String(o.order_id), { saleDate: o.sale_date, vendorItemId: Number(o.vendor_item_id), quantity: Number(o.quantity), saleAmount: Number(o.sale_amount) });
+      }
+
+      // ss_refund 뱃지 집계 (원래 구매일 기준)
+      const refundBadgeMap = new Map<string, { count: number; amount: number }>();
+      const itemAdjustMap = new Map<string, { quantity: number; saleAmount: number }>();
+
+      for (const r of returnRecords) {
+        const info = orderMap.get(r.productOrderId);
+        if (!info) continue;
+        const key = info.saleDate;
+        const existing = refundBadgeMap.get(key) ?? { count: 0, amount: 0 };
+        existing.count += 1;
+        existing.amount += info.saleAmount;
+        refundBadgeMap.set(key, existing);
+
+        const itemKey = `${info.saleDate}|${info.vendorItemId}`;
+        const existingItem = itemAdjustMap.get(itemKey) ?? { quantity: 0, saleAmount: 0 };
+        existingItem.quantity += info.quantity;
+        existingItem.saleAmount += info.saleAmount;
+        itemAdjustMap.set(itemKey, existingItem);
+      }
+
+      // ss_refund 뱃지 저장 (기존 삭제 후 재삽입)
+      await supabase.from('daily_sales').delete()
+        .eq('store_id', storeId).eq('channel', 'ss_refund')
+        .gte('sale_date', dateFrom).lte('sale_date', dateTo);
+
+      const refundRows = Array.from(refundBadgeMap.entries()).map(([date, { count, amount }]) => ({
+        store_id: storeId,
+        sale_date: date,
+        channel: 'ss_refund',
+        total_sale_amount: amount,
+        total_settlement_amount: 0,
+        order_count: count,
+        updated_at: new Date().toISOString(),
+      }));
+      if (refundRows.length > 0) await supabase.from('daily_sales').insert(refundRows);
+
+      // daily_sales smartstore 매출 차감
+      for (const [saleDate, { amount: refAmount, count: refCount }] of refundBadgeMap) {
+        const { data: cur } = await supabase.from('daily_sales').select('total_sale_amount, order_count')
+          .eq('store_id', storeId).eq('sale_date', saleDate).eq('channel', 'smartstore').maybeSingle();
+        if (cur) {
+          await supabase.from('daily_sales').update({
+            total_sale_amount: Math.max(0, Number(cur.total_sale_amount) - refAmount),
+            order_count: Math.max(0, Number(cur.order_count) - refCount),
+          }).eq('store_id', storeId).eq('sale_date', saleDate).eq('channel', 'smartstore');
+        }
+      }
+
+      // daily_sales_items 수량/금액 차감
+      for (const [key, { quantity: refQty, saleAmount: refAmt }] of itemAdjustMap) {
+        const [saleDate, vendorItemIdStr] = key.split('|');
+        const vendorItemId = Number(vendorItemIdStr);
+        const { data: curItem } = await supabase.from('daily_sales_items').select('quantity, sale_amount')
+          .eq('store_id', storeId).eq('sale_date', saleDate).eq('channel', 'smartstore').eq('vendor_item_id', vendorItemId).maybeSingle();
+        if (curItem) {
+          await supabase.from('daily_sales_items').update({
+            quantity: Math.max(0, Number(curItem.quantity) - refQty),
+            sale_amount: Math.max(0, Number(curItem.sale_amount) - refAmt),
+          }).eq('store_id', storeId).eq('sale_date', saleDate).eq('channel', 'smartstore').eq('vendor_item_id', vendorItemId);
+        }
+      }
+
+      // is_refunded 마킹 (전체 초기화 후 반품 건만 true)
+      await supabase.from('daily_order_details').update({ is_refunded: false })
+        .eq('store_id', storeId).eq('channel', 'smartstore')
+        .gte('sale_date', dateFrom).lte('sale_date', dateTo);
+      const matchedIds = returnOrderIds.filter(id => orderMap.has(id));
+      if (matchedIds.length > 0) {
+        await supabase.from('daily_order_details').update({ is_refunded: true })
+          .eq('store_id', storeId).eq('channel', 'smartstore').in('order_id', matchedIds);
+      }
+    }
+
     return NextResponse.json({
       message: '스마트스토어 매출 데이터 저장 완료',
       days: totalDays,
+      returns: returnRecords.length,
     });
   } catch (error: unknown) {
     console.error('스마트스토어 배치 동기화 오류:', error);

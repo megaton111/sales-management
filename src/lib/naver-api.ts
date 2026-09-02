@@ -210,6 +210,56 @@ export async function fetchNaverOrders(dateFrom: string, dateTo: string, creds: 
   return { dailyMap };
 }
 
+export interface NaverReturnRecord {
+  productOrderId: string;
+  totalPaymentAmount: number;
+  claimDate: string;
+}
+
+export async function fetchNaverReturns(dateFrom: string, dateTo: string, creds: NaverCredentials): Promise<NaverReturnRecord[]> {
+  const dates = getDatesInRange(dateFrom, dateTo);
+  const returns: NaverReturnRecord[] = [];
+
+  for (let i = 0; i < dates.length; i++) {
+    const date = dates[i];
+    if (i > 0) await sleep(300);
+    let page = 1;
+    const PAGE_SIZE = 100;
+
+    while (true) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json: any = await naverFetch('/v1/pay-order/seller/product-orders', creds, {
+        from: toNaverDateTime(date, false),
+        to: toNaverDateTime(date, true),
+        rangeType: 'CLAIM_REQUESTED_DATETIME',
+        productOrderStatuses: 'RETURNED',
+        pageSize: String(PAGE_SIZE),
+        page: String(page),
+      });
+
+      const contents: unknown[] = json?.data?.contents ?? [];
+      const hasNext: boolean = json?.data?.pagination?.hasNext === true;
+
+      for (const item of contents) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const it = item as any;
+        const productOrder = it.content?.productOrder ?? it;
+        const claimDate = it.content?.currentClaim?.claimRequestDate?.slice(0, 10) ?? date;
+        returns.push({
+          productOrderId: String(productOrder.productOrderId ?? ''),
+          totalPaymentAmount: Number(productOrder.totalPaymentAmount ?? 0),
+          claimDate,
+        });
+      }
+
+      if (!hasNext) break;
+      page++;
+    }
+  }
+
+  return returns;
+}
+
 export async function testNaverConnection(creds: NaverCredentials): Promise<boolean> {
   const token = await getNaverAccessToken(creds);
   return !!token;

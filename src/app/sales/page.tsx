@@ -410,7 +410,7 @@ export default function SalesPage() {
   const [rgOrderLoadingKey, setRgOrderLoadingKey] = useState<string | null>(null);
 
   const [expandedSsKey, setExpandedSsKey] = useState<string | null>(null);
-  const [ssOrderDetailsMap, setSsOrderDetailsMap] = useState<Record<string, { orderId: string; paidAt: string; quantity: number; unitPrice: number; saleAmount: number }[]>>({});
+  const [ssOrderDetailsMap, setSsOrderDetailsMap] = useState<Record<string, { orderId: string; paidAt: string; quantity: number; unitPrice: number; saleAmount: number; isRefunded: boolean }[]>>({});
   const [ssOrderLoadingKey, setSsOrderLoadingKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -674,18 +674,21 @@ export default function SalesPage() {
                             <TableBody>
                               {orders.map((order) => {
                                 const paidAtStr = order.paidAt ? order.paidAt.slice(5, 16).replace('T', ' ') : '-';
-                                const orderMargin = cost
+                                const orderMargin = cost && !order.isRefunded
                                   ? Math.round(order.saleAmount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * order.quantity
                                   : null;
+                                const strikeSx = order.isRefunded ? { textDecoration: 'line-through', opacity: 0.55 } : {};
                                 return (
-                                  <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' } }}>
-                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{order.orderId}</TableCell>
-                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057' }}>{paidAtStr}</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{order.quantity}건</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8 }}>{formatNumber(order.unitPrice)}원</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600 }}>{formatNumber(order.saleAmount)}원</TableCell>
-                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
-                                      {orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
+                                  <TableRow key={order.orderId} sx={{ '&:last-child td': { borderBottom: 'none' }, ...(order.isRefunded ? { backgroundColor: '#fff5f5' } : {}) }}>
+                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057', ...strikeSx }}>{order.orderId}{order.isRefunded && <Box component="span" sx={{ ml: 0.5, fontSize: '0.65rem', color: '#e03131', fontWeight: 700, textDecoration: 'none' }}>반품</Box>}</TableCell>
+                                    <TableCell sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, color: '#495057', ...strikeSx }}>{paidAtStr}</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>{order.quantity}건</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, ...strikeSx }}>{formatNumber(order.unitPrice)}원</TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : 'inherit' }}>
+                                      {order.isRefunded ? '0원' : `${formatNumber(order.saleAmount)}원`}
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
+                                      {order.isRefunded ? '0원' : orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -1135,7 +1138,8 @@ export default function SalesPage() {
             const ssProfit = daySales?.smartstoreProfit ?? 0;
             const mpRefundCount = daySales?.mpRefundCount ?? 0;
             const rgRefundCount = daySales?.rgRefundCount ?? 0;
-            const hasRefund = mpRefundCount > 0 || rgRefundCount > 0;
+            const ssRefundCount = daySales?.ssRefundCount ?? 0;
+            const hasRefund = mpRefundCount > 0 || rgRefundCount > 0 || ssRefundCount > 0;
             const totalAmount = mpAmount + rgAmount + ssAmount;
             const totalDayProfit = mpProfit + rgProfit + ssProfit;
             const isSelectedDay = day === selectedDay;
@@ -1195,6 +1199,7 @@ export default function SalesPage() {
                       <>
                         <Box sx={{ borderTop: '1px solid #f1f3f5', mt: 0.3, mb: 0.1 }} />
                         {[
+                          { label: '스스반품', value: ssRefundCount, hide: ssRefundCount === 0 },
                           { label: '쿠팡판매반품', value: mpRefundCount, hide: mpRefundCount === 0 },
                           { label: '쿠팡로켓반품', value: rgRefundCount, hide: rgRefundCount === 0 },
                         ].filter(item => !item.hide).map(({ label, value }) => (

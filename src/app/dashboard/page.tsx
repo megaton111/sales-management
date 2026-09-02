@@ -15,7 +15,7 @@ import Chip from '@mui/material/Chip';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, PieChart, Pie, Cell } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useProductProfits from '@/hooks/useProductProfits';
 import useDashboard from '@/hooks/useDashboard';
@@ -224,44 +224,81 @@ export default function DashboardPage() {
             <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96' }}>지출 통계</Typography>
             {!loading && expenseByType.length > 0 && (
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd' }}>
-                {year}년 연간 합계 {expenseByType.reduce((s, e) => s + e.amount, 0).toLocaleString('ko-KR')}원
+                합계 {expenseByType.reduce((s, e) => s + e.amount, 0).toLocaleString('ko-KR')}원
               </Typography>
             )}
           </Box>
           {loading ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Skeleton variant="rounded" width={90} height={14} sx={{ borderRadius: 1, flexShrink: 0 }} />
-                  <Skeleton variant="rounded" sx={{ flex: 1, height: 8, borderRadius: 4 }} />
-                  <Skeleton variant="rounded" width={80} height={14} sx={{ borderRadius: 1, flexShrink: 0 }} />
-                </Box>
-              ))}
+            <Box sx={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+              <Skeleton variant="circular" width={180} height={180} sx={{ flexShrink: 0 }} />
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Skeleton variant="circular" width={8} height={8} sx={{ flexShrink: 0 }} />
+                    <Skeleton variant="rounded" width={90} height={14} sx={{ borderRadius: 1, flex: 1 }} />
+                    <Skeleton variant="rounded" width={80} height={14} sx={{ borderRadius: 1 }} />
+                  </Box>
+                ))}
+              </Box>
             </Box>
           ) : expenseByType.length === 0 ? (
             <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd', textAlign: 'center', py: 3 }}>
               지출 데이터 없음
             </Typography>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.4 }}>
-              {expenseByType.map((item) => (
-                <Box key={item.type} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Typography sx={{ width: 110, fontSize: '0.8rem', color: '#495057', flexShrink: 0 }}>
-                    {item.type}
-                  </Typography>
-                  <Box sx={{ flex: 1, height: 8, backgroundColor: '#f1f3f5', borderRadius: 4, overflow: 'hidden' }}>
-                    <Box sx={{ width: `${item.ratio * 100}%`, height: '100%', backgroundColor: '#74c0fc', borderRadius: 4 }} />
-                  </Box>
-                  <Typography sx={{ width: 110, textAlign: 'right', fontSize: '0.8rem', color: '#1a1a1b', fontWeight: 600, flexShrink: 0 }}>
-                    {item.amount.toLocaleString('ko-KR')}원
-                  </Typography>
-                  <Typography sx={{ width: 38, textAlign: 'right', fontSize: '0.75rem', color: '#adb5bd', flexShrink: 0 }}>
-                    {(item.ratio * 100).toFixed(1)}%
-                  </Typography>
+          ) : (() => {
+            const PIE_COLORS = ['#343a40', '#495057', '#868e96', '#adb5bd', '#ced4da', '#6c757d', '#212529', '#74c0fc', '#94d82d'];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const renderLabel = ({ cx, cy, midAngle, outerRadius, name }: any) => {
+              const RADIAN = Math.PI / 180;
+              const r = outerRadius + 18;
+              const x = cx + r * Math.cos(-midAngle * RADIAN);
+              const y = cy + r * Math.sin(-midAngle * RADIAN);
+              return (
+                <text x={x} y={y} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central"
+                  style={{ fontSize: '0.7rem', fill: '#495057', fontWeight: 500 }}>
+                  {name}
+                </text>
+              );
+            };
+            const chartData = expenseByType.map((item, i) => ({
+              name: item.type, value: item.amount, color: PIE_COLORS[i % PIE_COLORS.length],
+            }));
+            const totalAmt = expenseByType.reduce((s, e) => s + e.amount, 0);
+            return (
+              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Box sx={{ width: '50%', minWidth: 220, height: 240 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
+                        dataKey="value" paddingAngle={2} label={renderLabel} labelLine={{ stroke: '#dee2e6', strokeWidth: 1 }}>
+                        {chartData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => [`${Number(value).toLocaleString('ko-KR')}원`, '']}
+                        contentStyle={{ fontSize: '0.78rem', borderRadius: 8, border: '1px solid #f1f3f5' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </Box>
-              ))}
-            </Box>
-          )}
+                <Box sx={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {chartData.map((d) => (
+                    <Box key={d.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: d.color, flexShrink: 0 }} />
+                      <Typography sx={{ fontSize: '0.8rem', color: '#868e96', flex: 1 }}>{d.name}</Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#495057' }}>
+                        {d.value.toLocaleString('ko-KR')}원
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', minWidth: 36, textAlign: 'right' }}>
+                        {Math.round(d.value / totalAmt * 100)}%
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            );
+          })()}
         </Paper>
 
         {/* 판매 순위 */}

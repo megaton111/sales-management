@@ -29,6 +29,7 @@ interface DaySales {
   smartstoreProfit: number;
   mpRefundCount: number;
   rgRefundCount: number;
+  ssRefundCount: number;
 }
 
 function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData): number {
@@ -72,7 +73,7 @@ export default function useMonthlySales(
     const map = new Map<number, DaySales>();
     for (const row of rows) {
       const day = new Date(row.sale_date).getDate();
-      const existing = map.get(day) || { marketplace: 0, rocketGrowth: 0, smartstore: 0, marketplaceProfit: 0, rocketGrowthProfit: 0, smartstoreProfit: 0, mpRefundCount: 0, rgRefundCount: 0 };
+      const existing = map.get(day) || { marketplace: 0, rocketGrowth: 0, smartstore: 0, marketplaceProfit: 0, rocketGrowthProfit: 0, smartstoreProfit: 0, mpRefundCount: 0, rgRefundCount: 0, ssRefundCount: 0 };
       if (row.channel === 'marketplace') {
         existing.marketplace += Number(row.total_sale_amount);
       } else if (row.channel === 'rocket_growth') {
@@ -83,6 +84,8 @@ export default function useMonthlySales(
         existing.mpRefundCount += Number(row.order_count);
       } else if (row.channel === 'rg_refund') {
         existing.rgRefundCount += Number(row.order_count);
+      } else if (row.channel === 'ss_refund') {
+        existing.ssRefundCount += Number(row.order_count);
       }
       map.set(day, existing);
     }
@@ -139,7 +142,7 @@ export default function useMonthlySales(
   }, [dailySalesMap, costMap, rows]);
 
   const totalRefundCount = useMemo(() =>
-    rows.filter(r => r.channel === 'mp_refund' || r.channel === 'rg_refund').reduce((sum, r) => sum + Number(r.order_count), 0),
+    rows.filter(r => r.channel === 'mp_refund' || r.channel === 'rg_refund' || r.channel === 'ss_refund').reduce((sum, r) => sum + Number(r.order_count), 0),
     [rows]
   );
 
