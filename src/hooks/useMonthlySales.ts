@@ -146,5 +146,10 @@ export default function useMonthlySales(
     [rows]
   );
 
-  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, loading, refetch: fetchData };
+  const totalOrderCount = useMemo(() =>
+    rows.filter(r => r.channel === 'marketplace' || r.channel === 'rocket_growth' || r.channel === 'smartstore').reduce((sum, r) => sum + Number(r.order_count), 0),
+    [rows]
+  );
+
+  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, totalOrderCount, loading, refetch: fetchData };
 }

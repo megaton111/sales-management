@@ -80,7 +80,7 @@ export default function SalesPage() {
   const { costMap } = useProductProfits(currentStore?.id ?? null);
   const { totalAmount: totalExpenses } = useExpenses(currentStore?.id ?? null, year, month);
 
-  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, loading, refetch } = useMonthlySales(
+  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, totalOrderCount, loading, refetch } = useMonthlySales(
     currentStore?.id ?? null, year, month, costMap
   );
 
@@ -1089,10 +1089,17 @@ export default function SalesPage() {
                 {loading ? (
                   <Skeleton variant="rounded" width={100} height={22} sx={{ borderRadius: 1, mt: 0.5 }} />
                 ) : (
-                  <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: totalRefundCount > 0 ? '#e03131' : '#1a1a1b', letterSpacing: '-0.02em' }}>
-                    {totalRefundCount}
-                    <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: totalRefundCount > 0 ? '#e03131' : '#1a1a1b', letterSpacing: '-0.02em' }}>
+                      {totalRefundCount}
+                      <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
+                    </Typography>
+                    {totalOrderCount > 0 && (
+                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: totalRefundCount > 0 ? '#e03131' : '#adb5bd' }}>
+                        {((totalRefundCount / totalOrderCount) * 100).toFixed(1)}%
+                      </Typography>
+                    )}
+                  </Box>
                 )}
               </Paper>
               <Paper elevation={0} onClick={() => router.push(`/expenses?year=${year}&month=${month}`)} sx={{ ...cardSx, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
