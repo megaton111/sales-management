@@ -227,6 +227,10 @@ export interface NaverReturnRecord {
   productOrderId: string;
   totalPaymentAmount: number;
   claimDate: string;
+  paymentDate: string;
+  productName: string;
+  optionName: string;
+  quantity: number;
 }
 
 export async function fetchNaverReturns(dateFrom: string, dateTo: string, creds: NaverCredentials): Promise<NaverReturnRecord[]> {
@@ -257,11 +261,17 @@ export async function fetchNaverReturns(dateFrom: string, dateTo: string, creds:
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const it = item as any;
         const productOrder = it.content?.productOrder ?? it;
+        const order = it.content?.order ?? {};
         const claimDate = it.content?.currentClaim?.claimRequestDate?.slice(0, 10) ?? date;
+        const paymentDate = (order.paymentDate ?? productOrder.paymentDate ?? '').slice(0, 10);
         returns.push({
           productOrderId: String(productOrder.productOrderId ?? ''),
           totalPaymentAmount: Number(productOrder.totalPaymentAmount ?? 0),
           claimDate,
+          paymentDate,
+          productName: String(productOrder.productName ?? ''),
+          optionName: String(productOrder.optionName ?? ''),
+          quantity: Number(productOrder.quantity ?? 1),
         });
       }
 

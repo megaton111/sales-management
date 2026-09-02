@@ -129,14 +129,12 @@ export async function POST(request: NextRequest) {
     if (returnRecords.length > 0) {
       const returnOrderIds = returnRecords.map(r => r.productOrderId);
 
-      // 반품된 주문을 DB에서 조회 (채널=smartstore, 동기화 기간 내 주문만)
+      // DB에 저장된 반품 주문 조회 (날짜 제한 없이 전체 — 구매일≠반품신청일인 경우 대응)
       const { data: matchedOrders } = await supabase
         .from('daily_order_details')
         .select('order_id, sale_date, vendor_item_id, quantity, sale_amount')
         .eq('store_id', storeId)
         .eq('channel', 'smartstore')
-        .gte('sale_date', dateFrom)
-        .lte('sale_date', dateTo)
         .in('order_id', returnOrderIds);
 
       const orderMap = new Map<string, { saleDate: string; vendorItemId: number; quantity: number; saleAmount: number }>();
@@ -144,18 +142,52 @@ export async function POST(request: NextRequest) {
         orderMap.set(String(o.order_id), { saleDate: o.sale_date, vendorItemId: Number(o.vendor_item_id), quantity: Number(o.quantity), saleAmount: Number(o.sale_amount) });
       }
 
-      // ss_refund 뱃지 집계 (원래 구매일 기준)
+      // DB에 없는 반품 주문 삽입 (반품 시점에 이미 RETURNED 상태라 fetchNaverOrders에서 누락된 경우)
+      const missingReturns = returnRecords.filter(r => !orderMap.has(r.productOrderId) && r.paymentDate);
+      if (missingReturns.length > 0) {
+        const insertRows = missingReturns.map(r => ({
+          store_id: storeId,
+          sale_date: r.paymentDate,
+          channel: 'smartstore',
+          vendor_item_id: hashId(`${r.productName}|${r.optionName}`),
+          order_id: r.productOrderId,
+          paid_at: r.paymentDate,
+          quantity: r.quantity,
+          unit_price: Math.round(r.totalPaymentAmount / r.quantity),
+          sale_amount: r.totalPaymentAmount,
+          is_refunded: true,
+        }));
+        const { error: insertErr } = await supabase.from('daily_order_details').upsert(insertRows, { onConflict: 'store_id,sale_date,channel,order_id,vendor_item_id' });
+        if (insertErr) console.error('[SS batch] missing return insert error:', insertErr);
+
+        // orderMap에도 추가
+        for (const r of missingReturns) {
+          const vid = hashId(`${r.productName}|${r.optionName}`);
+          orderMap.set(r.productOrderId, { saleDate: r.paymentDate, vendorItemId: vid, quantity: r.quantity, saleAmount: r.totalPaymentAmount });
+        }
+
+        // daily_sales에 해당 날짜 smartstore 행이 없으면 생성
+        const missingDates = [...new Set(missingReturns.map(r => r.paymentDate))];
+        for (const d of missingDates) {
+          await supabase.from('daily_sales').upsert({
+            store_id: storeId, sale_date: d, channel: 'smartstore',
+            total_sale_amount: 0, total_settlement_amount: 0, order_count: 0,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'store_id,sale_date,channel' });
+        }
+      }
+
+      // ss_refund 뱃지 집계 (구매일 기준)
       const refundBadgeMap = new Map<string, { count: number; amount: number }>();
       const itemAdjustMap = new Map<string, { quantity: number; saleAmount: number }>();
 
       for (const r of returnRecords) {
         const info = orderMap.get(r.productOrderId);
         if (!info) continue;
-        const key = info.saleDate;
-        const existing = refundBadgeMap.get(key) ?? { count: 0, amount: 0 };
+        const existing = refundBadgeMap.get(info.saleDate) ?? { count: 0, amount: 0 };
         existing.count += 1;
         existing.amount += info.saleAmount;
-        refundBadgeMap.set(key, existing);
+        refundBadgeMap.set(info.saleDate, existing);
 
         const itemKey = `${info.saleDate}|${info.vendorItemId}`;
         const existingItem = itemAdjustMap.get(itemKey) ?? { quantity: 0, saleAmount: 0 };
@@ -164,27 +196,24 @@ export async function POST(request: NextRequest) {
         itemAdjustMap.set(itemKey, existingItem);
       }
 
-      // ss_refund 뱃지 저장 (기존 삭제 후 재삽입)
-      await supabase.from('daily_sales').delete()
-        .eq('store_id', storeId).eq('channel', 'ss_refund')
-        .gte('sale_date', dateFrom).lte('sale_date', dateTo);
-
+      // ss_refund 뱃지 저장 — 영향받는 날짜만 삭제 후 재삽입
+      const affectedDates = Array.from(refundBadgeMap.keys());
+      if (affectedDates.length > 0) {
+        await supabase.from('daily_sales').delete()
+          .eq('store_id', storeId).eq('channel', 'ss_refund').in('sale_date', affectedDates);
+      }
       const refundRows = Array.from(refundBadgeMap.entries()).map(([date, { count, amount }]) => ({
-        store_id: storeId,
-        sale_date: date,
-        channel: 'ss_refund',
-        total_sale_amount: amount,
-        total_settlement_amount: 0,
-        order_count: count,
+        store_id: storeId, sale_date: date, channel: 'ss_refund',
+        total_sale_amount: amount, total_settlement_amount: 0, order_count: count,
         updated_at: new Date().toISOString(),
       }));
       if (refundRows.length > 0) await supabase.from('daily_sales').insert(refundRows);
 
-      // daily_sales smartstore 매출 차감
+      // daily_sales smartstore 매출 차감 (반품 주문이 정상 집계된 날만)
       for (const [saleDate, { amount: refAmount, count: refCount }] of refundBadgeMap) {
         const { data: cur } = await supabase.from('daily_sales').select('total_sale_amount, order_count')
           .eq('store_id', storeId).eq('sale_date', saleDate).eq('channel', 'smartstore').maybeSingle();
-        if (cur) {
+        if (cur && Number(cur.total_sale_amount) > 0) {
           await supabase.from('daily_sales').update({
             total_sale_amount: Math.max(0, Number(cur.total_sale_amount) - refAmount),
             order_count: Math.max(0, Number(cur.order_count) - refCount),
@@ -206,14 +235,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // is_refunded 마킹 (전체 초기화 후 반품 건만 true)
+      // is_refunded 마킹 — 동기화 기간 내 초기화 후 전체 반품 건 마킹
       await supabase.from('daily_order_details').update({ is_refunded: false })
         .eq('store_id', storeId).eq('channel', 'smartstore')
         .gte('sale_date', dateFrom).lte('sale_date', dateTo);
-      const matchedIds = returnOrderIds.filter(id => orderMap.has(id));
-      if (matchedIds.length > 0) {
+      if (returnOrderIds.length > 0) {
         await supabase.from('daily_order_details').update({ is_refunded: true })
-          .eq('store_id', storeId).eq('channel', 'smartstore').in('order_id', matchedIds);
+          .eq('store_id', storeId).eq('channel', 'smartstore').in('order_id', returnOrderIds);
       }
     }
 
