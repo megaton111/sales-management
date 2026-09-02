@@ -54,26 +54,39 @@ export async function getNaverAccessToken(creds: NaverCredentials): Promise<stri
   return token;
 }
 
-async function naverFetch(path: string, creds: NaverCredentials, params?: Record<string, string>) {
+async function naverFetch(path: string, creds: NaverCredentials, params?: Record<string, string>, retries = 3) {
   const token = await getNaverAccessToken(creds);
   const url = new URL(`${BASE_URL}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   }
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`스마트스토어 API 오류 (${res.status}): ${text}`);
+    if (res.status === 429) {
+      if (attempt < retries) {
+        const waitMs = 2000 * (attempt + 1); // 2s, 4s, 6s
+        console.log(`[Naver] 429 rate limit, ${waitMs}ms 후 재시도 (${attempt + 1}/${retries})`);
+        await sleep(waitMs);
+        continue;
+      }
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`스마트스토어 API 오류 (${res.status}): ${text}`);
+    }
+
+    return res.json();
   }
 
-  return res.json();
+  throw new Error('스마트스토어 API 오류: 재시도 횟수 초과 (429)');
 }
 
 export interface NaverProductOrder {
@@ -175,10 +188,10 @@ export async function fetchNaverOrders(dateFrom: string, dateTo: string, creds: 
   const dailyMap: NaverDailyData['dailyMap'] = new Map();
   const dates = getDatesInRange(dateFrom, dateTo);
 
-  // API 최대 24시간 제한 → 날짜별로 1건씩 호출 (rate limit 방지: 500ms 간격)
+  // API 최대 24시간 제한 → 날짜별로 1건씩 호출 (rate limit 방지: 1s 간격)
   for (let i = 0; i < dates.length; i++) {
     const date = dates[i];
-    if (i > 0) await sleep(500);
+    if (i > 0) await sleep(1000);
     let page = 1;
     const PAGE_SIZE = 100;
 
@@ -222,7 +235,7 @@ export async function fetchNaverReturns(dateFrom: string, dateTo: string, creds:
 
   for (let i = 0; i < dates.length; i++) {
     const date = dates[i];
-    if (i > 0) await sleep(300);
+    if (i > 0) await sleep(1000);
     let page = 1;
     const PAGE_SIZE = 100;
 
