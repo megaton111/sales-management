@@ -69,6 +69,19 @@ export default function useProductProfits(storeId: number | null) {
               market_commission: variantCost.market_commission || (cost?.market_commission ?? 0),
             });
           }
+          // 채널+옵션 변형도 등록: "상품명 [채널] [사이즈]" → cleanKey가 사이즈로 끝나면 매칭
+          const prefix = `${m.product_sale_name} [${label}] [`;
+          for (const [saleName, optCost] of Object.entries(saleCostMap)) {
+            if (saleName.startsWith(prefix) && saleName.endsWith(']')) {
+              const size = saleName.slice(prefix.length, -1).toLowerCase();
+              if (cleanKey.toLowerCase().endsWith(' ' + size)) {
+                map.set(`${cleanKey}|${channelId}`, {
+                  ...optCost,
+                  market_commission: optCost.market_commission || (cost?.market_commission ?? 0),
+                });
+              }
+            }
+          }
         }
       });
       setCostMap(map);

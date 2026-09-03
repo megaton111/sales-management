@@ -903,7 +903,7 @@ export default function SalesPage() {
             const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
-              : item.sale_amount;
+              : item.unit_profit * item.quantity;
             return (
               <TableRow key={`${item.channel}_${item.vendor_item_id}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
                 <TableCell sx={tdSx}>{item.product_name}</TableCell>

@@ -221,6 +221,7 @@ export default function ProductsPage() {
         effectiveSalesData.filter(s => s.option_size).map(s => s.name)
       );
       const toInsert: Record<string, unknown>[] = [];
+      const toDelete: string[] = [];
 
       Object.entries(optInfoMap).forEach(([baseName, opts]) => {
         const base = effectiveSalesData.find(s => s.name === baseName);
@@ -231,6 +232,12 @@ export default function ProductsPage() {
 
         if (channels.length > 0) {
           // 채널이 있으면 채널+옵션 형태로 생성
+          // 잘못 생성된 직접옵션(브라켓 1개) 삭제 대상 수집
+          effectiveSalesData
+            .filter(s => s.base_name === baseName && !!s.option_size &&
+              (s.name.match(/\[[^\]]+\]/g) || []).length < 2)
+            .forEach(o => { toDelete.push(o.name); existingOptNames.delete(o.name); });
+
           channels.forEach(cv => {
             const brackets = cv.name.match(/\[[^\]]+\]/g) || [];
             const channelName = brackets[0]?.slice(1, -1) ?? "";
@@ -260,36 +267,54 @@ export default function ProductsPage() {
             });
           });
         } else {
-          // 채널 없으면 직접 옵션으로 생성
-          opts.forEach(({ size, avgUnitCost }) => {
-            const variantName = `${baseName} [${size}]`;
-            if (!existingOptNames.has(variantName)) {
-              toInsert.push({
-                name: variantName,
-                store_id: storeId,
-                base_name: baseName,
-                option_size: size,
-                multiplier: 1,
-                category: "옵션",
-                selling_price: 0,
-                market_commission: 0,
-                unit_cost: avgUnitCost,
-                warehouse_fee: 0,
-                shipping_fee: 0,
-                barcode_fee: base?.barcode_fee ?? 150,
-                box_fee: base?.box_fee ?? 100,
-                other_fee: 0,
-                memo: "",
-                profit: 0,
-                updated_at: new Date().toISOString(),
-              });
-            }
-          });
+          // 채널+옵션 항목이 이미 있으면 잘못된 직접옵션만 삭제 (채널 헤더 행이 없는 경우)
+          const hasChannelOpts = effectiveSalesData.some(
+            s => s.base_name === baseName && !!s.option_size &&
+              (s.name.match(/\[[^\]]+\]/g) || []).length >= 2
+          );
+
+          if (hasChannelOpts) {
+            effectiveSalesData
+              .filter(s => s.base_name === baseName && !!s.option_size &&
+                (s.name.match(/\[[^\]]+\]/g) || []).length < 2)
+              .forEach(o => { toDelete.push(o.name); existingOptNames.delete(o.name); });
+          } else {
+            // 진짜 채널 없음 — 직접 옵션 생성
+            opts.forEach(({ size, avgUnitCost }) => {
+              const variantName = `${baseName} [${size}]`;
+              if (!existingOptNames.has(variantName)) {
+                toInsert.push({
+                  name: variantName,
+                  store_id: storeId,
+                  base_name: baseName,
+                  option_size: size,
+                  multiplier: 1,
+                  category: "옵션",
+                  selling_price: 0,
+                  market_commission: 0,
+                  unit_cost: avgUnitCost,
+                  warehouse_fee: 0,
+                  shipping_fee: 0,
+                  barcode_fee: base?.barcode_fee ?? 150,
+                  box_fee: base?.box_fee ?? 100,
+                  other_fee: 0,
+                  memo: "",
+                  profit: 0,
+                  updated_at: new Date().toISOString(),
+                });
+              }
+            });
+          }
         }
       });
 
+      if (toDelete.length > 0) {
+        await supabase.from('product_sales').delete().in('name', toDelete).eq('store_id', storeId);
+      }
       if (toInsert.length > 0) {
         await supabase.from("product_sales").upsert(toInsert, { onConflict: "name,store_id" });
+      }
+      if (toDelete.length > 0 || toInsert.length > 0) {
         const { data: refreshed } = await supabase.from("product_sales").select("*").eq("store_id", storeId);
         effectiveSalesData = (refreshed || []) as SalesRow[];
       }

@@ -78,9 +78,7 @@ export async function POST(request: NextRequest) {
         channel,
         vendor_item_id: item.vendorItemId,
         product_name: item.productName,
-        vendor_item_name: item.vendorItemName && item.vendorItemName !== item.productName
-          ? `${item.productName} ${item.vendorItemName}`
-          : item.vendorItemName,
+        vendor_item_name: item.vendorItemName,
         quantity: item.quantity,
         sale_amount: item.salePrice,
         settlement_amount: 0,

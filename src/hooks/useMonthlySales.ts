@@ -101,7 +101,7 @@ export default function useMonthlySales(
           ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
         const itemProfit = cost
           ? calcItemProfit(item.sale_amount, item.quantity, cost)
-          : item.sale_amount;
+          : item.unit_profit * item.quantity;
         if (item.channel === 'marketplace') {
           existing.marketplaceProfit += itemProfit;
         } else if (item.channel === 'rocket_growth') {
