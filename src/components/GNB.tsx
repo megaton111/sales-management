@@ -57,9 +57,9 @@ export default function GNB() {
   return (
     <>
       <AppBar
-        position="static"
+        position="sticky"
         elevation={0}
-        sx={{ backgroundColor: "#fff", borderBottom: "1px solid #f1f3f5" }}
+        sx={{ backgroundColor: "#fff", borderBottom: "1px solid #f1f3f5", top: 0, zIndex: 1100 }}
       >
         <Toolbar variant="dense" sx={{ justifyContent: "space-between" }}>
           <Box sx={{ display: "flex", gap: 0.5 }}>

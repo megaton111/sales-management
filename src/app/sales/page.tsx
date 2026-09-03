@@ -27,10 +27,13 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import SyncIcon from '@mui/icons-material/Sync';
 import Collapse from '@mui/material/Collapse';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useStore } from '@/contexts/StoreContext';
 import { createClient } from '@/lib/supabase-browser';
 import useMonthlySales from '@/hooks/useMonthlySales';
@@ -921,8 +924,46 @@ export default function SalesPage() {
 
   return (
     <>
-    <Container maxWidth="lg" sx={{ pt: 3, pb: 1 }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    {/* 좌우 월 이동 버튼 */}
+    {(() => {
+      const isPrevDisabled = year === 2025 && month === 1;
+      const isNextDisabled = year === currentYear && month === currentMonth;
+      const btnSx = {
+        position: 'fixed' as const,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        zIndex: 10,
+        backgroundColor: '#fff',
+        border: '1px solid #dee2e6',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        width: 40,
+        height: 40,
+        '&:hover': { backgroundColor: '#f8f9fa', borderColor: '#adb5bd' },
+        '&.Mui-disabled': { backgroundColor: '#f8f9fa', borderColor: '#f1f3f5', color: '#dee2e6' },
+      };
+      const goPrev = () => {
+        if (isPrevDisabled) return;
+        if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
+        clearDetail();
+      };
+      const goNext = () => {
+        if (isNextDisabled) return;
+        if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1);
+        clearDetail();
+      };
+      return (
+        <>
+          <IconButton onClick={goPrev} disabled={isPrevDisabled} sx={{ ...btnSx, left: 'max(8px, calc(50% - 648px))' }}>
+            <ChevronLeftIcon sx={{ fontSize: 22, color: '#495057' }} />
+          </IconButton>
+          <IconButton onClick={goNext} disabled={isNextDisabled} sx={{ ...btnSx, right: 'max(8px, calc(50% - 648px))' }}>
+            <ChevronRightIcon sx={{ fontSize: 22, color: '#495057' }} />
+          </IconButton>
+        </>
+      );
+    })()}
+    <Container maxWidth="lg" sx={{ pt: 3, pb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {/* 헤더 + 월 선택 */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Select
@@ -1144,12 +1185,8 @@ export default function SalesPage() {
 
         </Box>
 
-      </Box>
-    </Container>
-
-    {/* 달력 UI */}
-    <Container maxWidth="lg" sx={{ mb: 1 }}>
-      <Paper elevation={0} sx={{ p: 2, backgroundColor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        {/* 달력 UI */}
+        <Paper elevation={0} sx={{ p: 2, backgroundColor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         {/* 요일 헤더 */}
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 0.5 }}>
           {weekLabels.map((label, i) => (
@@ -1250,10 +1287,6 @@ export default function SalesPage() {
           })}
         </Box>
       </Paper>
-    </Container>
-
-    <Container maxWidth="lg" sx={{ pb: 4 }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         {/* 상품 상세 리스트 */}
         <Box>
             {(selectedDate || detailLabel) && selectedChannel ? (
