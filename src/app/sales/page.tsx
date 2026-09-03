@@ -87,7 +87,7 @@ export default function SalesPage() {
   const { costMap } = useProductProfits(currentStore?.id ?? null);
   const { totalAmount: totalExpenses } = useExpenses(currentStore?.id ?? null, year, month);
 
-  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, totalOrderCount, loading, refetch } = useMonthlySales(
+  const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalMarketplaceProfit, totalRocketGrowthProfit, totalSmartstoreProfit, totalRefundCount, totalOrderCount, loading, refetch } = useMonthlySales(
     currentStore?.id ?? null, year, month, costMap
   );
 
@@ -1086,21 +1086,30 @@ export default function SalesPage() {
                 </Paper>
               ))}
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, flex: 1 }}>
-              <Paper elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <Typography sx={{ color: '#868e96', fontSize: '0.75rem', mb: 0.5 }}>
-                  {month}월 순이익
-                  <Typography component="span" sx={{ fontSize: '0.7rem', color: '#adb5bd', ml: 0.5 }}>(원가/수수료 차감)</Typography>
-                </Typography>
-                {loading ? (
-                  <Skeleton variant="rounded" width={100} height={22} sx={{ borderRadius: 1, mt: 0.5 }} />
-                ) : (
-                  <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
-                    {formatNumber(totalProfit)}
-                    <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+              {[
+                { label: `${month}월 순이익`, sub: '(원가/수수료 차감)', value: totalProfit },
+                { label: '쿠팡(판매자배송)', value: totalMarketplaceProfit },
+                { label: '쿠팡(로켓)', value: totalRocketGrowthProfit },
+                { label: '스마트스토어', value: totalSmartstoreProfit },
+              ].map(({ label, sub, value }) => (
+                <Paper key={label} elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <Typography sx={{ color: '#868e96', fontSize: '0.75rem', mb: 0.5 }}>
+                    {label}
+                    {sub && <Typography component="span" sx={{ fontSize: '0.7rem', color: '#adb5bd', ml: 0.5 }}>{sub}</Typography>}
                   </Typography>
-                )}
-              </Paper>
+                  {loading ? (
+                    <Skeleton variant="rounded" width={100} height={22} sx={{ borderRadius: 1, mt: 0.5 }} />
+                  ) : (
+                    <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: value >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
+                      {formatNumber(value)}
+                      <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
+                    </Typography>
+                  )}
+                </Paper>
+              ))}
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, flex: 1 }}>
               <Paper elevation={0} sx={{ ...cardSx, cursor: 'default', '&:hover': {}, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <Typography sx={{ color: '#868e96', fontSize: '0.75rem', mb: 0.5 }}>{month}월 반품</Typography>
                 {loading ? (

@@ -141,6 +141,24 @@ export default function useMonthlySales(
     return sum;
   }, [dailySalesMap, costMap, rows]);
 
+  const totalMarketplaceProfit = useMemo(() => {
+    let sum = 0;
+    for (const [, d] of dailySalesMap) sum += d.marketplaceProfit;
+    return sum;
+  }, [dailySalesMap]);
+
+  const totalRocketGrowthProfit = useMemo(() => {
+    let sum = 0;
+    for (const [, d] of dailySalesMap) sum += d.rocketGrowthProfit;
+    return sum;
+  }, [dailySalesMap]);
+
+  const totalSmartstoreProfit = useMemo(() => {
+    let sum = 0;
+    for (const [, d] of dailySalesMap) sum += d.smartstoreProfit;
+    return sum;
+  }, [dailySalesMap]);
+
   const totalRefundCount = useMemo(() =>
     rows.filter(r => r.channel === 'mp_refund' || r.channel === 'rg_refund' || r.channel === 'ss_refund').reduce((sum, r) => sum + Number(r.order_count), 0),
     [rows]
@@ -151,5 +169,5 @@ export default function useMonthlySales(
     [rows]
   );
 
-  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalRefundCount, totalOrderCount, loading, refetch: fetchData };
+  return { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalMarketplaceProfit, totalRocketGrowthProfit, totalSmartstoreProfit, totalRefundCount, totalOrderCount, loading, refetch: fetchData };
 }
