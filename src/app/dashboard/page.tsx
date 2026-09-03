@@ -14,6 +14,11 @@ import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
 import Backdrop from '@mui/material/Backdrop';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
@@ -54,6 +59,45 @@ export default function DashboardPage() {
     currentStore?.id ?? null, year, costMap, month
   );
   const [syncing, setSyncing] = useState(false);
+  const [noticeQueue, setNoticeQueue] = useState<string[]>([]);
+  const [currentNotice, setCurrentNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const completed: string[] = JSON.parse(localStorage.getItem('ad_notice_completed') || '[]');
+    const now = new Date();
+    const queue: string[] = [];
+
+    for (let i = 2; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const lastDayDate = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const monthEnded = now > lastDayDate;
+      const isLastDay = now.getDate() === lastDayDate.getDate()
+        && now.getMonth() === lastDayDate.getMonth()
+        && now.getFullYear() === lastDayDate.getFullYear();
+      const isCurrentMonth = i === 0;
+
+      if ((monthEnded || (isCurrentMonth && isLastDay)) && !completed.includes(monthKey)) {
+        queue.push(monthKey);
+      }
+    }
+
+    if (queue.length > 0) {
+      setNoticeQueue(queue);
+      setCurrentNotice(queue[0]);
+    }
+  }, []);
+
+  const handleNoticeComplete = () => {
+    if (!currentNotice) return;
+    const completed: string[] = JSON.parse(localStorage.getItem('ad_notice_completed') || '[]');
+    localStorage.setItem('ad_notice_completed', JSON.stringify([...completed, currentNotice]));
+    const remaining = noticeQueue.filter(m => m !== currentNotice);
+    setNoticeQueue(remaining);
+    setCurrentNotice(remaining[0] ?? null);
+  };
+
+  const handleNoticeLater = () => setCurrentNotice(null);
 
   useEffect(() => {
     const alreadySynced = sessionStorage.getItem('dashboard_synced_today');
@@ -77,6 +121,52 @@ export default function DashboardPage() {
           <CircularProgress sx={{ color: '#fff' }} size={48} />
           <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>오늘 데이터 동기화 중...</Typography>
         </Backdrop>
+
+        {currentNotice && (() => {
+          const [y, m] = currentNotice.split('-');
+          const monthLabel = `${y}년 ${Number(m)}월`;
+          return (
+            <Dialog open onClose={handleNoticeLater} PaperProps={{ sx: { borderRadius: 3, p: 0.5, minWidth: 380 } }}>
+              <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', color: '#1a1a1b', pb: 1 }}>
+                📢 {monthLabel} 광고비 내역을 업로드해주세요
+              </DialogTitle>
+              <DialogContent sx={{ pb: 1 }}>
+                <Typography sx={{ fontSize: '0.88rem', color: '#495057', lineHeight: 1.8 }}>
+                  {monthLabel} 광고비가 아직 등록되지 않았습니다.<br />
+                  지출 탭에서 광고비를 등록하면 순이익을 정확히 확인할 수 있어요.
+                </Typography>
+                <Box sx={{ mt: 1.5, p: 1.5, backgroundColor: '#f8f9fa', borderRadius: 2 }}>
+                  <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#495057', mb: 0.8 }}>📂 쿠팡 광고비 다운로드 방법</Typography>
+                  {[
+                    '쿠팡 Wing → 광고 관리 → 보고서 탭 이동',
+                    '기간을 해당 월 전체로 설정',
+                    '목록에서 항목을 건별로 모두 선택 (체크박스)',
+                    '엑셀 다운로드 클릭',
+                    '다운로드한 파일을 지출 탭에서 업로드',
+                  ].map((step, i) => (
+                    <Box key={i} sx={{ display: 'flex', gap: 1, mb: 0.4 }}>
+                      <Typography sx={{ fontSize: '0.75rem', color: '#1971c2', fontWeight: 700, minWidth: 16 }}>{i + 1}.</Typography>
+                      <Typography sx={{ fontSize: '0.75rem', color: '#868e96', lineHeight: 1.6 }}>{step}</Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </DialogContent>
+              <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
+                <Button size="small" onClick={handleNoticeLater} sx={{ color: '#adb5bd', fontSize: '0.8rem' }}>
+                  다음에
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={handleNoticeComplete}
+                  sx={{ backgroundColor: '#1a1a1b', borderRadius: 2, fontSize: '0.8rem', '&:hover': { backgroundColor: '#343a40' } }}
+                >
+                  완료
+                </Button>
+              </DialogActions>
+            </Dialog>
+          );
+        })()}
         {/* 헤더 */}
         <Box sx={{ mb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
