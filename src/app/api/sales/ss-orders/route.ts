@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('daily_order_details')
-      .select('order_id, paid_at, quantity, unit_price, sale_amount, is_refunded')
+      .select('order_id, paid_at, quantity, unit_price, sale_amount, settlement_amount, inflow_path, is_refunded')
       .eq('store_id', storeId)
       .eq('sale_date', date)
       .eq('channel', 'smartstore')
@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
         quantity: r.quantity,
         unitPrice: r.unit_price ?? 0,
         saleAmount: r.sale_amount,
+        settlementAmount: r.settlement_amount ?? 0,
+        inflowPath: r.inflow_path ?? '',
         isRefunded: r.is_refunded ?? false,
       }))
       .sort((a, b) => new Date(b.paidAt).getTime() - new Date(a.paidAt).getTime());

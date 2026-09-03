@@ -69,10 +69,11 @@ export async function POST(request: NextRequest) {
         channel,
         vendor_item_id: hashId(`${item.productName}|${item.optionName}`),
         product_name: item.productName,
-        vendor_item_name: item.optionName || item.productName,
+        vendor_item_name: item.optionName ? `${item.productName} ${item.optionName}` : item.productName,
         quantity: item.quantity,
         sale_amount: item.saleAmount,
-        settlement_amount: 0,
+        settlement_amount: item.settlementAmount,
+        inflow_path: item.inflowPaths.join(', '),
         unit_profit: 0,
         sale_type: 'SALE',
       }));
@@ -103,6 +104,8 @@ export async function POST(request: NextRequest) {
         quantity: o.quantity,
         unit_price: o.unitPrice,
         sale_amount: o.saleAmount,
+        settlement_amount: o.settlementAmount,
+        inflow_path: o.inflowPath,
       }));
 
       if (orderRows.length > 0) {

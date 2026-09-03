@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -12,6 +12,8 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Chip from '@mui/material/Chip';
+import Backdrop from '@mui/material/Backdrop';
+import CircularProgress from '@mui/material/CircularProgress';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
@@ -51,11 +53,30 @@ export default function DashboardPage() {
   const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType } = useDashboard(
     currentStore?.id ?? null, year, costMap, month
   );
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    const alreadySynced = sessionStorage.getItem('dashboard_synced_today');
+    const today = new Date().toISOString().slice(0, 10);
+    if (alreadySynced === today) return;
+
+    setSyncing(true);
+    fetch('/api/sync/all', { method: 'POST' })
+      .then(() => {
+        sessionStorage.setItem('dashboard_synced_today', today);
+        window.location.reload();
+      })
+      .catch(() => setSyncing(false));
+  }, []);
 
   const periodLabel = month ? `${year}년 ${month}월` : `${year}년`;
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Backdrop open={syncing} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          <CircularProgress sx={{ color: '#fff' }} size={48} />
+          <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>오늘 데이터 동기화 중...</Typography>
+        </Backdrop>
         {/* 헤더 */}
         <Box sx={{ mb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

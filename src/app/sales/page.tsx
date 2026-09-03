@@ -66,6 +66,13 @@ function formatNumber(n: number) {
   return Math.trunc(n).toLocaleString('ko-KR');
 }
 
+function getOptionPart(vendorItemName: string | undefined, productName: string): string {
+  if (!vendorItemName || vendorItemName === productName) return '';
+  if (vendorItemName.startsWith(productName + ' ')) return vendorItemName.slice(productName.length + 1);
+  if (vendorItemName.includes(',')) return vendorItemName.split(',').slice(1).join(',').trim();
+  return vendorItemName;
+}
+
 export default function SalesPage() {
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -410,7 +417,7 @@ export default function SalesPage() {
   const [rgOrderLoadingKey, setRgOrderLoadingKey] = useState<string | null>(null);
 
   const [expandedSsKey, setExpandedSsKey] = useState<string | null>(null);
-  const [ssOrderDetailsMap, setSsOrderDetailsMap] = useState<Record<string, { orderId: string; paidAt: string; quantity: number; unitPrice: number; saleAmount: number; isRefunded: boolean }[]>>({});
+  const [ssOrderDetailsMap, setSsOrderDetailsMap] = useState<Record<string, { orderId: string; paidAt: string; quantity: number; unitPrice: number; saleAmount: number; settlementAmount: number; inflowPath: string; isRefunded: boolean }[]>>({});
   const [ssOrderLoadingKey, setSsOrderLoadingKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -529,7 +536,7 @@ export default function SalesPage() {
                       : <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#adb5bd', verticalAlign: 'middle' }} />}
                   </TableCell>
                   <TableCell sx={tdSx}>{item.product_name}</TableCell>
-                  <TableCell sx={tdSx}>{item.vendor_item_name?.includes(',') ? item.vendor_item_name.split(',').slice(1).join(',').trim() : ''}</TableCell>
+                  <TableCell sx={tdSx}>{getOptionPart(item.vendor_item_name, item.product_name)}</TableCell>
                   <TableCell align="right" sx={tdSx}>{formatNumber(item.quantity)}건</TableCell>
                   <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.sale_amount)}원</TableCell>
                   <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: itemProfit > 0 ? '#2b8a3e' : '#adb5bd' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>
@@ -610,6 +617,7 @@ export default function SalesPage() {
         : item.unit_profit * item.quantity;
       return sum + itemProfit;
     }, 0);
+    const totalSettlement = tableItems.reduce((sum, item) => sum + (item.settlement_amount ?? 0), 0);
     return (
     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
       <Table size="small">
@@ -620,6 +628,7 @@ export default function SalesPage() {
             <TableCell sx={thSx}>옵션명</TableCell>
             <TableCell align="right" sx={thSx}>판매건수</TableCell>
             <TableCell align="right" sx={thSx}>매출금액</TableCell>
+            <TableCell align="right" sx={thSx}>정산예정금액</TableCell>
             <TableCell align="right" sx={thSx}>순이익</TableCell>
           </TableRow>
         </TableHead>
@@ -644,13 +653,14 @@ export default function SalesPage() {
                       : <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#adb5bd', verticalAlign: 'middle' }} />}
                   </TableCell>
                   <TableCell sx={tdSx}>{item.product_name}</TableCell>
-                  <TableCell sx={tdSx}>{item.vendor_item_name}</TableCell>
+                  <TableCell sx={tdSx}>{getOptionPart(item.vendor_item_name, item.product_name)}</TableCell>
                   <TableCell align="right" sx={tdSx}>{formatNumber(item.quantity)}건</TableCell>
                   <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.sale_amount)}원</TableCell>
+                  <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: '#1971c2' }}>{item.settlement_amount > 0 ? `${formatNumber(item.settlement_amount)}원` : '-'}</TableCell>
                   <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: itemProfit > 0 ? '#2b8a3e' : '#adb5bd' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={6} sx={{ p: 0, borderBottom: isExpanded ? '1px solid #f1f3f5' : 'none' }}>
+                  <TableCell colSpan={7} sx={{ p: 0, borderBottom: isExpanded ? '1px solid #f1f3f5' : 'none' }}>
                     <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                       <Box sx={{ p: 1.5, backgroundColor: '#f8f9fa' }}>
                         {isLoadingThis ? (
@@ -668,7 +678,9 @@ export default function SalesPage() {
                                 <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>수량</TableCell>
                                 <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>단위판매가</TableCell>
                                 <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>판매금액</TableCell>
+                                <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>정산예정</TableCell>
                                 <TableCell align="right" sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>마진</TableCell>
+                                <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>유입경로</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
@@ -687,9 +699,13 @@ export default function SalesPage() {
                                     <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : 'inherit' }}>
                                       {order.isRefunded ? '0원' : `${formatNumber(order.saleAmount)}원`}
                                     </TableCell>
+                                    <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: '#1971c2', ...strikeSx }}>
+                                      {order.settlementAmount > 0 ? `${formatNumber(order.settlementAmount)}원` : '-'}
+                                    </TableCell>
                                     <TableCell align="right" sx={{ ...tdSx, fontSize: '0.78rem', py: 0.8, fontWeight: 600, color: order.isRefunded ? '#e03131' : orderMargin === null ? '#adb5bd' : orderMargin > 0 ? '#2b8a3e' : '#e03131' }}>
                                       {order.isRefunded ? '0원' : orderMargin !== null ? `${formatNumber(orderMargin)}원` : '-'}
                                     </TableCell>
+                                    <TableCell sx={{ ...tdSx, fontSize: '0.75rem', py: 0.8, color: '#868e96' }}>{order.inflowPath || '-'}</TableCell>
                                   </TableRow>
                                 );
                               })}
@@ -705,7 +721,8 @@ export default function SalesPage() {
           })}
           <TableRow sx={{ backgroundColor: '#f8f9fa', borderTop: '2px solid #e9ecef' }}>
             <TableCell colSpan={4} sx={{ ...tdSx, fontWeight: 700, color: '#495057' }}>합계</TableCell>
-            <TableCell />
+            <TableCell align="right" sx={{ ...tdSx, fontWeight: 700 }}>{formatNumber(tableItems.reduce((s, i) => s + i.sale_amount, 0))}원</TableCell>
+            <TableCell align="right" sx={{ ...tdSx, fontWeight: 700, color: '#1971c2' }}>{totalSettlement > 0 ? `${formatNumber(totalSettlement)}원` : '-'}</TableCell>
             <TableCell align="right" sx={{ ...tdSx, fontWeight: 700, color: totalProfit > 0 ? '#2b8a3e' : '#e03131' }}>{formatNumber(totalProfit)}원</TableCell>
           </TableRow>
         </TableBody>
@@ -758,7 +775,7 @@ export default function SalesPage() {
                       : <KeyboardArrowDownIcon sx={{ fontSize: 16, color: '#adb5bd', verticalAlign: 'middle' }} />}
                   </TableCell>
                   <TableCell sx={tdSx}>{item.product_name}</TableCell>
-                  <TableCell sx={tdSx}>{item.vendor_item_name?.includes(',') ? item.vendor_item_name.split(',').slice(1).join(',').trim() : ''}</TableCell>
+                  <TableCell sx={tdSx}>{getOptionPart(item.vendor_item_name, item.product_name)}</TableCell>
                   <TableCell align="right" sx={tdSx}>{formatNumber(item.quantity)}건</TableCell>
                   <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.sale_amount)}원</TableCell>
                   <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: itemProfit > 0 ? '#2b8a3e' : '#adb5bd' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>
@@ -890,7 +907,7 @@ export default function SalesPage() {
             return (
               <TableRow key={`${item.channel}_${item.vendor_item_id}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
                 <TableCell sx={tdSx}>{item.product_name}</TableCell>
-                <TableCell sx={tdSx}>{item.vendor_item_name?.includes(',') ? item.vendor_item_name.split(',').slice(1).join(',').trim() : ''}</TableCell>
+                <TableCell sx={tdSx}>{getOptionPart(item.vendor_item_name, item.product_name)}</TableCell>
                 <TableCell align="right" sx={tdSx}>{formatNumber(item.quantity)}건</TableCell>
                 <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.sale_amount)}원</TableCell>
                 <TableCell align="right" sx={{ ...tdSx, fontWeight: 600, color: itemProfit > 0 ? '#2b8a3e' : '#adb5bd' }}>{itemProfit !== 0 ? `${formatNumber(itemProfit)}원` : '-'}</TableCell>

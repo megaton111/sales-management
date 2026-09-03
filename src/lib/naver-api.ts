@@ -130,8 +130,8 @@ export interface NaverDailyData {
   dailyMap: Map<string, {
     totalSaleAmount: number;
     orderCount: number;
-    items: Map<string, { productName: string; optionName: string; quantity: number; saleAmount: number }>;
-    orders: { productOrderId: string; paymentDate: string; quantity: number; unitPrice: number; saleAmount: number; productName: string; optionName: string }[];
+    items: Map<string, { productName: string; optionName: string; quantity: number; saleAmount: number; settlementAmount: number; inflowPaths: string[] }>;
+    orders: { productOrderId: string; paymentDate: string; quantity: number; unitPrice: number; saleAmount: number; settlementAmount: number; inflowPath: string; productName: string; optionName: string }[];
   }>;
 }
 
@@ -155,9 +155,11 @@ function processProductOrder(item: any, dailyMap: NaverDailyData['dailyMap']) {
   const daily = dailyMap.get(key)!;
 
   const amount = Number(productOrder.totalPaymentAmount ?? 0);
+  const settlement = Number(productOrder.expectedSettlementAmount ?? 0);
   const qty = Number(productOrder.quantity ?? 1);
   const productName = String(productOrder.productName ?? '');
-  const optionName = String(productOrder.optionName ?? '');
+  const optionName = String(productOrder.productOption || productOrder.optionName || '');
+  const inflowPath = String(productOrder.inflowPath ?? '');
 
   daily.totalSaleAmount += amount;
   daily.orderCount += 1;
@@ -167,8 +169,10 @@ function processProductOrder(item: any, dailyMap: NaverDailyData['dailyMap']) {
   if (existing) {
     existing.quantity += qty;
     existing.saleAmount += amount;
+    existing.settlementAmount += settlement;
+    if (inflowPath && !existing.inflowPaths.includes(inflowPath)) existing.inflowPaths.push(inflowPath);
   } else {
-    daily.items.set(productKey, { productName, optionName, quantity: qty, saleAmount: amount });
+    daily.items.set(productKey, { productName, optionName, quantity: qty, saleAmount: amount, settlementAmount: settlement, inflowPaths: inflowPath ? [inflowPath] : [] });
   }
 
   daily.orders.push({
@@ -177,6 +181,8 @@ function processProductOrder(item: any, dailyMap: NaverDailyData['dailyMap']) {
     quantity: qty,
     unitPrice: Math.round(amount / qty),
     saleAmount: amount,
+    settlementAmount: settlement,
+    inflowPath,
     productName,
     optionName,
   });

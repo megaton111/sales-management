@@ -214,8 +214,89 @@ export default function ProductsPage() {
       option_size: string | null;
     };
 
+    // optionsMap에 있지만 product_sales에 없는 옵션 자동 추가
+    let effectiveSalesData = salesData as SalesRow[];
+    {
+      const existingOptNames = new Set(
+        effectiveSalesData.filter(s => s.option_size).map(s => s.name)
+      );
+      const toInsert: Record<string, unknown>[] = [];
+
+      Object.entries(optInfoMap).forEach(([baseName, opts]) => {
+        const base = effectiveSalesData.find(s => s.name === baseName);
+        // 채널 변형 확인 (채널 헤더: base_name=baseName, option_size=null, multiplier=1, name≠baseName)
+        const channels = effectiveSalesData.filter(
+          s => s.base_name === baseName && s.multiplier === 1 && !s.option_size && s.name !== baseName
+        );
+
+        if (channels.length > 0) {
+          // 채널이 있으면 채널+옵션 형태로 생성
+          channels.forEach(cv => {
+            const brackets = cv.name.match(/\[[^\]]+\]/g) || [];
+            const channelName = brackets[0]?.slice(1, -1) ?? "";
+            opts.forEach(({ size, avgUnitCost }) => {
+              const variantName = `${baseName} [${channelName}] [${size}]`;
+              if (!existingOptNames.has(variantName)) {
+                toInsert.push({
+                  name: variantName,
+                  store_id: storeId,
+                  base_name: baseName,
+                  option_size: size,
+                  multiplier: 1,
+                  category: channelName,
+                  selling_price: cv.selling_price,
+                  market_commission: cv.market_commission,
+                  unit_cost: avgUnitCost,
+                  warehouse_fee: cv.warehouse_fee,
+                  shipping_fee: cv.shipping_fee,
+                  barcode_fee: cv.barcode_fee ?? base?.barcode_fee ?? 150,
+                  box_fee: cv.box_fee ?? base?.box_fee ?? 100,
+                  other_fee: cv.other_fee ?? 0,
+                  memo: "",
+                  profit: 0,
+                  updated_at: new Date().toISOString(),
+                });
+              }
+            });
+          });
+        } else {
+          // 채널 없으면 직접 옵션으로 생성
+          opts.forEach(({ size, avgUnitCost }) => {
+            const variantName = `${baseName} [${size}]`;
+            if (!existingOptNames.has(variantName)) {
+              toInsert.push({
+                name: variantName,
+                store_id: storeId,
+                base_name: baseName,
+                option_size: size,
+                multiplier: 1,
+                category: "옵션",
+                selling_price: 0,
+                market_commission: 0,
+                unit_cost: avgUnitCost,
+                warehouse_fee: 0,
+                shipping_fee: 0,
+                barcode_fee: base?.barcode_fee ?? 150,
+                box_fee: base?.box_fee ?? 100,
+                other_fee: 0,
+                memo: "",
+                profit: 0,
+                updated_at: new Date().toISOString(),
+              });
+            }
+          });
+        }
+      });
+
+      if (toInsert.length > 0) {
+        await supabase.from("product_sales").upsert(toInsert, { onConflict: "name,store_id" });
+        const { data: refreshed } = await supabase.from("product_sales").select("*").eq("store_id", storeId);
+        effectiveSalesData = (refreshed || []) as SalesRow[];
+      }
+    }
+
     const savedSales: Record<string, SalesRow> = {};
-    (salesData as SalesRow[] || []).forEach((s) => {
+    effectiveSalesData.forEach((s) => {
       savedSales[s.name] = s;
     });
 
@@ -310,7 +391,7 @@ export default function ProductsPage() {
           }
         });
 
-      const hasChannelStructure = channelVariants.length > 0 || channelOptionMap.size > 0;
+      const hasChannelStructure = channelVariants.length > 0 || channelOptionMap.size > 0 || directOptions.length > 0;
 
       // depth 0: 기본 상품 행
       const baseSale = saved
