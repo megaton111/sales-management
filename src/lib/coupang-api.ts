@@ -212,6 +212,7 @@ interface ChannelDailySaleData {
   orderCount: number;
   items: Map<string, {
     vendorItemId: number;
+    productId?: number;
     productName: string;
     vendorItemName: string;
     quantity: number;
@@ -250,14 +251,14 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string, creds: Co
     return dailyMap.get(key)!;
   }
 
-  function addItem(data: ChannelDailySaleData, vendorItemId: number, productName: string, vendorItemName: string, quantity: number, salePrice: number) {
+  function addItem(data: ChannelDailySaleData, vendorItemId: number, productName: string, vendorItemName: string, quantity: number, salePrice: number, productId?: number) {
     const key = String(vendorItemId);
     const existing = data.items.get(key);
     if (existing) {
       existing.quantity += quantity;
       existing.salePrice += salePrice;
     } else {
-      data.items.set(key, { vendorItemId, productName, vendorItemName, quantity, salePrice });
+      data.items.set(key, { vendorItemId, productId, productName, vendorItemName, quantity, salePrice });
     }
   }
 
@@ -288,7 +289,7 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string, creds: Co
 
         const saleAmount = item.orderPrice - item.discountPrice - item.coupangDiscount;
         daily.totalSalePrice += saleAmount;
-        addItem(daily, item.vendorItemId, item.sellerProductName.trim().replace(/\s+/g, ' '), item.vendorItemName, item.shippingCount, saleAmount);
+        addItem(daily, item.vendorItemId, item.sellerProductName.trim().replace(/\s+/g, ' '), item.vendorItemName, item.shippingCount, saleAmount, item.productId);
 
         orderDetails.push({
           saleDate: dateStr,

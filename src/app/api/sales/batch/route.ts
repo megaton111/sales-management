@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
         sale_date: date,
         channel,
         vendor_item_id: item.vendorItemId,
+        coupang_product_id: item.productId ?? null,
         product_name: item.productName,
         vendor_item_name: item.vendorItemName,
         quantity: item.quantity,

@@ -24,6 +24,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import EditIcon from "@mui/icons-material/Edit";
 import LinkIcon from "@mui/icons-material/Link";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { createClient } from "@/lib/supabase-browser";
@@ -118,6 +119,7 @@ export default function ProductsPage() {
   const [optionDialog, setOptionDialog] = useState<{ open: boolean; parentName: string; baseName: string } | null>(null);
   const [optionInfoMap, setOptionInfoMap] = useState<Record<string, { size: string; avgUnitCost: number }[]>>({});
   const [costHistory, setCostHistory] = useState<{ open: boolean; productName: string; multiplier: number; items: { created_at: string; average_unit_cost: number }[]; currentAvg: number } | null>(null);
+  const [coupangUrlMap, setCoupangUrlMap] = useState<Record<string, string>>({});
 
   const fetchData = async () => {
     if (!currentStore) return;
@@ -131,7 +133,16 @@ export default function ProductsPage() {
       fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
     ]);
 
-    const allProductNames = new Set<string>();
+    // 공백/쉼표 차이로 생기는 중복 제거 (쉼표 있는 최신 형식 우선)
+    const nameDedup = new Map<string, string>();
+    const addName = (name: string) => {
+      if (!name) return;
+      const key = name.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+      const existing = nameDedup.get(key);
+      if (!existing || (!existing.includes(',') && name.includes(','))) {
+        nameDedup.set(key, name);
+      }
+    };
     const pageSize = 1000;
     let from = 0;
     while (true) {
@@ -142,13 +153,13 @@ export default function ProductsPage() {
         .range(from, from + pageSize - 1);
       if (!data || data.length === 0) break;
       data.forEach((r: { product_name: string; vendor_item_name: string }) => {
-        allProductNames.add(r.product_name);
-        if (r.vendor_item_name) allProductNames.add(r.vendor_item_name);
+        addName(r.product_name);
+        addName(r.vendor_item_name);
       });
       if (data.length < pageSize) break;
       from += pageSize;
     }
-    setCoupangNames([...allProductNames]);
+    setCoupangNames([...nameDedup.values()]);
 
     const mappingMap: Record<string, string[]> = {};
     ((mappingRes as { data: { coupang_product_name: string; product_sale_name: string }[] }).data || []).forEach((m) => {
@@ -556,6 +567,43 @@ export default function ProductsPage() {
         });
       }
     });
+
+    // 판매자배송 상품ID 조회
+    const { data: urlData } = await supabase
+      .from('daily_sales_items')
+      .select('product_name, vendor_item_name, coupang_product_id')
+      .eq('store_id', storeId)
+      .eq('channel', 'marketplace')
+      .not('coupang_product_id', 'is', null);
+
+    const urlMap: Record<string, string> = {};
+
+    // product_name / vendor_item_name → coupang_product_id 역방향 맵
+    const pidByName: Record<string, number> = {};
+    (urlData || []).forEach((r: { product_name: string; vendor_item_name: string; coupang_product_id: number }) => {
+      if (!pidByName[r.product_name]) pidByName[r.product_name] = r.coupang_product_id;
+      if (r.vendor_item_name && !pidByName[r.vendor_item_name]) pidByName[r.vendor_item_name] = r.coupang_product_id;
+    });
+
+    // 1차: product_name이 products 테이블 이름과 직접 일치
+    Object.keys(productIdMap).forEach(baseName => {
+      if (pidByName[baseName]) urlMap[baseName] = `https://www.coupang.com/vp/products/${pidByName[baseName]}`;
+    });
+
+    // 2차: 매핑 테이블 경유 (coupang_product_name or vendor_item_name → product_sale_name → base 상품명)
+    const allMappings = ((mappingRes as { data: { coupang_product_name: string; product_sale_name: string }[] }).data || []);
+    allMappings.forEach((m) => {
+      const pid = pidByName[m.coupang_product_name];
+      if (!pid) return;
+      const baseName = Object.keys(productIdMap).find(
+        k => m.product_sale_name === k || m.product_sale_name.startsWith(k + ' [')
+      );
+      if (baseName && !urlMap[baseName]) {
+        urlMap[baseName] = `https://www.coupang.com/vp/products/${pid}`;
+      }
+    });
+
+    setCoupangUrlMap(urlMap);
 
     setSales(list);
     setMemoValues(Object.fromEntries(list.map((s) => [s.name, s.memo])));
@@ -1036,6 +1084,8 @@ export default function ProductsPage() {
                         item.depth === 1 ? "#495057" :
                         "#6c757d";
 
+                      const coupangUrl = col.key === "name" && item.depth === 0 ? coupangUrlMap[item.name] : undefined;
+
                       return (
                         <TableCell
                           key={col.key}
@@ -1068,6 +1118,16 @@ export default function ProductsPage() {
                               </IconButton>
                             )}
                             {display}
+                            {item.depth === 0 && col.key === "name" && (
+                              <IconButton
+                                size="small"
+                                disabled={!coupangUrl}
+                                onClick={coupangUrl ? () => window.open(coupangUrl, '_blank') : undefined}
+                                sx={{ p: 0.25, ml: 0.25 }}
+                              >
+                                <OpenInNewIcon sx={{ fontSize: 13, color: coupangUrl ? "#228be6" : "#dee2e6" }} />
+                              </IconButton>
+                            )}
                           </Box>
                         </TableCell>
                       );

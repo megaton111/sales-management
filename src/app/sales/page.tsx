@@ -15,8 +15,6 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
-import LinearProgress from '@mui/material/LinearProgress';
-import Backdrop from '@mui/material/Backdrop';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Select from '@mui/material/Select';
@@ -28,7 +26,6 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
-import SyncIcon from '@mui/icons-material/Sync';
 import Collapse from '@mui/material/Collapse';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -106,9 +103,6 @@ export default function SalesPage() {
     }
   }, [loading, currentStore, year, month, fetchMonthly]);
 
-  const [isLocal, setIsLocal] = useState(false);
-  const [batchLoading, setBatchLoading] = useState(false);
-  const [naverBatchLoading, setNaverBatchLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success'
   });
@@ -315,44 +309,8 @@ export default function SalesPage() {
     }
   };
 
-  useEffect(() => {
-    setIsLocal(window.location.hostname === 'localhost');
-  }, []);
 
 
-  const handleNaverBatchSync = async () => {
-    if (!currentStore) return;
-    setNaverBatchLoading(true);
-    try {
-      const lastDay = new Date(year, month, 0).getDate();
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const endDate = new Date(year, month - 1, lastDay);
-      const actualEnd = endDate < yesterday ? endDate : yesterday;
-      const dateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
-      const dateTo = `${actualEnd.getFullYear()}-${String(actualEnd.getMonth() + 1).padStart(2, '0')}-${String(actualEnd.getDate()).padStart(2, '0')}`;
-
-      const res = await fetch('/api/sales/naver/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dateFrom, dateTo, storeId: currentStore.id }),
-      });
-
-      const json = await res.json();
-      if (res.ok) {
-        await refetch();
-        fetchMonthly(year, month, 'all', `${month}월 전체`);
-        setSnackbar({ open: true, message: '스마트스토어 동기화 완료', severity: 'success' });
-      } else {
-        setSnackbar({ open: true, message: json.error || '동기화 실패', severity: 'error' });
-      }
-    } catch {
-      setSnackbar({ open: true, message: '동기화 중 오류 발생', severity: 'error' });
-    } finally {
-      setNaverBatchLoading(false);
-    }
-  };
 
   const lastDate = new Date(year, month, 0).getDate();
   const days = Array.from({ length: lastDate }, (_, i) => i + 1);
@@ -370,43 +328,6 @@ export default function SalesPage() {
     fetchDetail(dateStr, channel);
   };
 
-  const handleBatchSync = async () => {
-    if (!currentStore) return;
-    setBatchLoading(true);
-    try {
-      const lastDay = new Date(year, month, 0).getDate();
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const endDate = new Date(year, month - 1, lastDay);
-      const actualEnd = endDate < yesterday ? endDate : yesterday;
-      const dateFrom = `${year}-${String(month).padStart(2, '0')}-01`;
-      const dateTo = `${actualEnd.getFullYear()}-${String(actualEnd.getMonth() + 1).padStart(2, '0')}-${String(actualEnd.getDate()).padStart(2, '0')}`;
-
-      const res = await fetch('/api/sales/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dateFrom, dateTo, storeId: currentStore.id }),
-      });
-
-      const json = await res.json();
-      if (res.ok) {
-        setExpandedOrderKey(null);
-        setOrderDetailsMap({});
-        setExpandedRgKey(null);
-        setRgOrderDetailsMap({});
-        await refetch();
-        fetchMonthly(year, month, 'all', `${month}월 전체`);
-        setSnackbar({ open: true, message: `매출 데이터 동기화 완료`, severity: 'success' });
-      } else {
-        setSnackbar({ open: true, message: json.error || '동기화 실패', severity: 'error' });
-      }
-    } catch {
-      setSnackbar({ open: true, message: '동기화 중 오류 발생', severity: 'error' });
-    } finally {
-      setBatchLoading(false);
-    }
-  };
 
   const selectedDay = selectedDate ? new Date(selectedDate).getDate() : null;
   const isMonthly = !!detailLabel;
@@ -1017,68 +938,6 @@ export default function SalesPage() {
               엑셀 가져오기
             </Button>
           </Box>
-          {isLocal && (
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleNaverBatchSync}
-                disabled={naverBatchLoading || !currentStore}
-                startIcon={
-                  <SyncIcon
-                    sx={{
-                      fontSize: '1rem !important',
-                      ...(naverBatchLoading && {
-                        animation: 'spin 1s linear infinite',
-                        '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
-                      }),
-                    }}
-                  />
-                }
-                sx={{
-                  borderColor: '#03c75a33',
-                  color: '#03c75a',
-                  fontSize: '0.8rem',
-                  fontWeight: 500,
-                  borderRadius: 2,
-                  px: 1.5,
-                  '&:hover': { borderColor: '#03c75a', backgroundColor: '#f0fdf4' },
-                  '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#adb5bd' },
-                }}
-              >
-                {naverBatchLoading ? '동기화 중...' : '스마트스토어'}
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleBatchSync}
-                disabled={batchLoading || !currentStore}
-                startIcon={
-                  <SyncIcon
-                    sx={{
-                      fontSize: '1rem !important',
-                      ...(batchLoading && {
-                        animation: 'spin 1s linear infinite',
-                        '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } },
-                      }),
-                    }}
-                  />
-                }
-                sx={{
-                  borderColor: '#dee2e6',
-                  color: '#495057',
-                  fontSize: '0.8rem',
-                  fontWeight: 500,
-                  borderRadius: 2,
-                  px: 1.5,
-                  '&:hover': { borderColor: '#adb5bd', backgroundColor: '#f8f9fa' },
-                  '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#adb5bd' },
-                }}
-              >
-                {batchLoading ? '동기화 중...' : '쿠팡 동기화'}
-              </Button>
-            </Box>
-          )}
         </Box>
 
         {/* 월 매출 총합 — B 레이아웃 */}
@@ -1336,17 +1195,6 @@ export default function SalesPage() {
           </Box>
       </Box>
 
-      <Backdrop open={batchLoading || naverBatchLoading} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
-        <Box sx={{ width: 320, textAlign: 'center' }}>
-          <Typography sx={{ color: '#fff', mb: 2, fontWeight: 500 }}>
-            {naverBatchLoading ? '스마트스토어 매출을 불러오는 중입니다.' : '매출을 불러오는 중입니다.'}
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mb: 3, fontSize: '0.85rem' }}>
-            {naverBatchLoading ? '날짜별로 순차 조회 중입니다. 잠시만 기다려주세요' : '잠시만 기다려주세요'}
-          </Typography>
-          <LinearProgress sx={{ borderRadius: 1, height: 6 }} />
-        </Box>
-      </Backdrop>
 
       <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>

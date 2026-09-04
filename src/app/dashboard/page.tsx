@@ -100,17 +100,23 @@ export default function DashboardPage() {
   const handleNoticeLater = () => setCurrentNotice(null);
 
   useEffect(() => {
-    const alreadySynced = sessionStorage.getItem('dashboard_synced_today');
-    const today = new Date().toISOString().slice(0, 10);
-    if (alreadySynced === today) return;
+    async function checkAndSync() {
+      try {
+        const res = await fetch('/api/server-instance');
+        const { startTime } = await res.json();
+        const syncedFor = sessionStorage.getItem('synced_server_start');
+        if (syncedFor === String(startTime)) return;
 
-    setSyncing(true);
-    fetch('/api/sync/all', { method: 'POST' })
-      .then(() => {
-        sessionStorage.setItem('dashboard_synced_today', today);
+        sessionStorage.setItem('synced_server_start', String(startTime)); // 먼저 저장
+        setSyncing(true);
+        await fetch('/api/sync/all', { method: 'POST' });
         window.location.reload();
-      })
-      .catch(() => setSyncing(false));
+      } catch {
+        sessionStorage.removeItem('synced_server_start');
+        setSyncing(false);
+      }
+    }
+    checkAndSync();
   }, []);
 
   const periodLabel = month ? `${year}년 ${month}월` : `${year}년`;
