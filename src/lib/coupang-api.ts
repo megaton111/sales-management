@@ -362,6 +362,87 @@ export async function fetchAllOrders(dateFrom: string, dateTo: string, creds: Co
   return { dailyMap, orderDetails };
 }
 
+// ========== 판매자 상품 카탈로그 API ==========
+
+export async function fetchSellerProductNames(creds: CoupangCredentials): Promise<Map<number, { productName: string; vendorItemName: string }>> {
+  const map = new Map<number, { productName: string; vendorItemName: string }>();
+  const listPath = `/v2/providers/seller_api/apis/api/v1/marketplace/seller-products`;
+
+  // 1단계: 전체 상품 목록 수집 (nextToken 페이지네이션)
+  const products: { sellerProductId: number; sellerProductName: string }[] = [];
+  let nextToken = '';
+
+  while (true) {
+    const query = `vendorId=${creds.vendor_id}&pageSize=100${nextToken ? `&nextToken=${nextToken}` : ''}`;
+    const authorization = generateHmacSignature('GET', listPath, query, creds);
+
+    const res = await fetchWithRetry(`${BASE_URL}${listPath}?${query}`, {
+      method: 'GET',
+      headers: { 'Authorization': authorization, 'Content-Type': 'application/json' },
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.log(`[seller-products 목록] 실패 status=${res.status} body=${errText.slice(0, 300)}`);
+      break;
+    }
+
+    const json = await res.json();
+    console.log(`[seller-products 목록] status=200 data.length=${(json.data ?? []).length} nextToken=${json.nextToken ?? 'none'}`);
+    const data: Record<string, unknown>[] = json.data ?? [];
+    for (const p of data) {
+      products.push({
+        sellerProductId: p.sellerProductId as number,
+        sellerProductName: (p.sellerProductName as string) ?? '',
+      });
+    }
+
+    if (!json.nextToken || data.length === 0) break;
+    nextToken = json.nextToken as string;
+    await sleep(200);
+  }
+
+  console.log(`[seller-products] 전체 상품 수집 완료: ${products.length}개`);
+
+  // 2단계: 상품 상세 조회 → items 안에 vendorItemId 포함 여부 확인
+  let loggedFirst = false;
+  for (const product of products) {
+    const detailPath = `/v2/providers/seller_api/apis/api/v1/marketplace/seller-products/${product.sellerProductId}`;
+    const authorization = generateHmacSignature('GET', detailPath, '', creds);
+
+    const res = await fetchWithRetry(`${BASE_URL}${detailPath}`, {
+      method: 'GET',
+      headers: { 'Authorization': authorization, 'Content-Type': 'application/json' },
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      if (!loggedFirst) console.log(`[seller-products 상세 실패] sellerProductId=${product.sellerProductId} status=${res.status} body=${errText.slice(0, 300)}`);
+      continue;
+    }
+
+    const json = await res.json();
+    const detail = (json.data ?? json) as Record<string, unknown>;
+    const items: Record<string, unknown>[] = (detail.items as Record<string, unknown>[]) ?? [];
+    for (const item of items) {
+      const itemName = (item.itemName as string) ?? '';
+      const vendorItemName = itemName ? `${product.sellerProductName}, ${itemName}` : product.sellerProductName;
+      const rgData = item.rocketGrowthItemData as Record<string, unknown> | undefined;
+      const mpData = item.marketplaceItemData as Record<string, unknown> | undefined;
+      if (rgData?.vendorItemId) map.set(Number(rgData.vendorItemId), { productName: product.sellerProductName, vendorItemName });
+      if (mpData?.vendorItemId) map.set(Number(mpData.vendorItemId), { productName: product.sellerProductName, vendorItemName });
+    }
+    if (!loggedFirst && items.length > 0) {
+      console.log('[seller-products 매핑 완료]', product.sellerProductName, '→', items.length, '옵션');
+      loggedFirst = true;
+    }
+
+    await sleep(100);
+  }
+
+  return map;
+}
+
 // ========== 로켓그로스 재고 API ==========
 
 interface RgInventoryItem {

@@ -16,6 +16,8 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Skeleton from '@mui/material/Skeleton';
 import Tooltip from '@mui/material/Tooltip';
+import Backdrop from '@mui/material/Backdrop';
+import CircularProgress from '@mui/material/CircularProgress';
 import SyncIcon from '@mui/icons-material/Sync';
 import { useStore } from '@/contexts/StoreContext';
 
@@ -79,10 +81,14 @@ export default function InventoryPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+  const [isLocal, setIsLocal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<'stock' | 'daysLeft' | 'salesLast30'>('stock');
+
+  useEffect(() => {
+    setIsLocal(window.location.hostname === 'localhost');
+  }, []);
 
   const fetchInventory = useCallback(async () => {
     if (!currentStore) return;
@@ -141,6 +147,11 @@ export default function InventoryPage() {
   }, [items, sortKey]);
 
   return (
+    <>
+    <Backdrop open={syncing} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+      <CircularProgress sx={{ color: '#fff' }} size={48} />
+      <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>재고 동기화 중...</Typography>
+    </Backdrop>
     <Container maxWidth="lg" sx={{ pt: 3, pb: 4 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
@@ -269,5 +280,6 @@ export default function InventoryPage() {
         )}
       </Box>
     </Container>
+    </>
   );
 }

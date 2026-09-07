@@ -15,14 +15,12 @@ export async function GET(req: NextRequest) {
     const [{ data: inventoryRows, error: invError }, { data: dbItems, error: nameError }] = await Promise.all([
       supabase
         .from('rg_inventory')
-        .select('vendor_item_id, stock, sales_last_30, updated_at')
+        .select('vendor_item_id, stock, sales_last_30, updated_at, product_name, vendor_item_name')
         .eq('store_id', storeId),
       supabase
         .from('daily_sales_items')
         .select('vendor_item_id, vendor_item_name, product_name, channel')
-        .eq('store_id', storeId)
-        .order('sale_date', { ascending: false })
-        .limit(10000),
+        .eq('store_id', storeId),
     ]);
 
     if (invError) throw invError;
@@ -41,9 +39,12 @@ export async function GET(req: NextRequest) {
     }
 
     const mapped = inventoryRows
-      .filter(item => nameMap.has(Number(item.vendor_item_id)))
+      .filter(item => nameMap.has(Number(item.vendor_item_id)) || item.product_name)
       .map(item => {
-        const names = nameMap.get(Number(item.vendor_item_id))!;
+        const storedName = item.product_name
+          ? { vendorItemName: item.vendor_item_name || item.product_name, productName: item.product_name }
+          : null;
+        const names = storedName ?? nameMap.get(Number(item.vendor_item_id)) ?? { vendorItemName: `vendorItemId: ${item.vendor_item_id}`, productName: '(이름 미확인)' };
         const salesLast30 = item.sales_last_30;
         const dailyAvg = salesLast30 / 30;
         const stock = item.stock;
