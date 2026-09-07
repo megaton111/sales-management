@@ -32,6 +32,7 @@ import DialogActions from '@mui/material/DialogActions';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import CircularProgress from '@mui/material/CircularProgress';
+import Backdrop from '@mui/material/Backdrop';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useExpenses, { EXPENSE_TYPES } from '@/hooks/useExpenses';
@@ -210,6 +211,7 @@ export default function ExpensesPage() {
   const handleAdImport = async () => {
     if (!currentStore || !parsedEntries?.length) return;
     setAdImporting(true);
+    setAdDialog(false);
     try {
       const res = await fetch('/api/expenses/ad-import', {
         method: 'POST',
@@ -281,6 +283,11 @@ export default function ExpensesPage() {
   const dateMax = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
   return (
+    <>
+    <Backdrop open={adImporting} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+      <CircularProgress sx={{ color: '#fff' }} size={48} />
+      <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>광고비 등록 중...</Typography>
+    </Backdrop>
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         {/* 월 선택 */}
@@ -558,5 +565,6 @@ export default function ExpensesPage() {
         <Alert severity={snackbar.severity} variant="filled">{snackbar.message}</Alert>
       </Snackbar>
     </Container>
+    </>
   );
 }

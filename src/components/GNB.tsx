@@ -25,6 +25,9 @@ import CheckIcon from "@mui/icons-material/Check";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import SyncIcon from "@mui/icons-material/Sync";
+import Backdrop from "@mui/material/Backdrop";
+import CircularProgress from "@mui/material/CircularProgress";
+import Typography from "@mui/material/Typography";
 import { useStore } from "@/contexts/StoreContext";
 
 const menus = [
@@ -119,8 +122,15 @@ export default function GNB() {
     setAnchorEl(null);
   };
 
+  const syncing = coupangLoading || naverLoading;
+  const syncingLabel = coupangLoading ? '쿠팡 동기화 중...' : '스마트스토어 동기화 중...';
+
   return (
     <>
+      <Backdrop open={syncing} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+        <CircularProgress sx={{ color: '#fff' }} size={48} />
+        <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>{syncingLabel}</Typography>
+      </Backdrop>
       <AppBar
         position="sticky"
         elevation={0}

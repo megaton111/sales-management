@@ -15,6 +15,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
+import Backdrop from '@mui/material/Backdrop';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Select from '@mui/material/Select';
@@ -190,6 +191,7 @@ export default function SalesPage() {
   const handleImport = async () => {
     if (!currentStore || !importText.trim()) return;
     setImporting(true);
+    setImportDialog(false);
     try {
       const { dailyMap, items, orderRows } = parseCoupangReport(importText, importChannel);
       if (items.length === 0) {
@@ -845,6 +847,10 @@ export default function SalesPage() {
 
   return (
     <>
+    <Backdrop open={importing} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+      <CircularProgress sx={{ color: '#fff' }} size={48} />
+      <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>데이터 가져오는 중...</Typography>
+    </Backdrop>
     {/* 좌우 월 이동 버튼 */}
     {(() => {
       const isPrevDisabled = year === 2025 && month === 1;

@@ -103,16 +103,14 @@ export default function DashboardPage() {
     async function checkAndSync() {
       try {
         const res = await fetch('/api/server-instance');
-        const { startTime } = await res.json();
-        const syncedFor = sessionStorage.getItem('synced_server_start');
-        if (syncedFor === String(startTime)) return;
+        const { syncDone } = await res.json();
+        if (syncDone) return;
 
-        sessionStorage.setItem('synced_server_start', String(startTime)); // 먼저 저장
         setSyncing(true);
         await fetch('/api/sync/all', { method: 'POST' });
+        await fetch('/api/server-instance', { method: 'POST' });
         window.location.reload();
       } catch {
-        sessionStorage.removeItem('synced_server_start');
         setSyncing(false);
       }
     }
