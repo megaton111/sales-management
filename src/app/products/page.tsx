@@ -139,7 +139,7 @@ export default function ProductsPage() {
       if (!name) return;
       const key = name.replace(/,/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
       const existing = nameDedup.get(key);
-      if (!existing || (!existing.includes(',') && name.includes(','))) {
+      if (!existing || (existing.includes(',') && !name.includes(','))) {
         nameDedup.set(key, name);
       }
     };

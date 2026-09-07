@@ -55,9 +55,17 @@ export default function useProductProfits(storeId: number | null) {
       const map = new Map<string, ProductCostData>();
       (mappingRes.data || []).forEach((m: { coupang_product_name: string; product_sale_name: string }) => {
         const cost = saleCostMap[m.product_sale_name];
-        const cleanKey = m.coupang_product_name.trim().replace(/\s+/g, ' ');
+        const cleanKey = m.coupang_product_name.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
         if (cost) {
           map.set(cleanKey, cost);
+          // 로켓그로스는 vendor_item_name = product_name (옵션 없음)이라 쉼표 포함 매핑과 불일치.
+          // 쉼표 앞 기본 상품명도 fallback 키로 등록 (이미 다른 매핑이 차지하지 않은 경우만)
+          if (m.coupang_product_name.includes(',')) {
+            const baseName = m.coupang_product_name.split(',')[0].trim().replace(/\s+/g, ' ');
+            if (baseName && !map.has(baseName)) {
+              map.set(baseName, cost);
+            }
+          }
         }
         // 채널 변형이 있으면 채널별 키도 등록 (예: "키|marketplace")
         // 채널 변형의 수수료가 0이면 베이스 상품 수수료를 상속
