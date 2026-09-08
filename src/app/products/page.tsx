@@ -13,6 +13,7 @@ import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
 import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -940,11 +941,11 @@ export default function ProductsPage() {
   return (
     <Box sx={{ px: 3, py: 3 }}>
       <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
-        <TableContainer>
-          <Table size="small">
+        <TableContainer sx={{ maxHeight: "calc(100vh - 48px - 48px)", overflow: "auto" }}>
+          <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#adb5bd", borderBottom: "1px solid #f1f3f5", width: 70 }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#495057", borderBottom: "1px solid #f1f3f5", width: 70, backgroundColor: "#fff" }}>
                   관리
                 </TableCell>
                 {columns.map((col) => (
@@ -955,7 +956,7 @@ export default function ProductsPage() {
                       fontWeight: 600,
                       fontSize: "0.75rem",
                       whiteSpace: "nowrap",
-                      color: "#adb5bd",
+                      color: "#495057",
                       borderBottom: "1px solid #f1f3f5",
                       backgroundColor: col.highlight ? "#f8f9fa" : "#fff",
                     }}
@@ -963,7 +964,7 @@ export default function ProductsPage() {
                     {col.label}
                   </TableCell>
                 ))}
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#adb5bd", borderBottom: "1px solid #f1f3f5" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#495057", borderBottom: "1px solid #f1f3f5", backgroundColor: "#fff" }}>
                   메모
                 </TableCell>
               </TableRow>
@@ -979,16 +980,23 @@ export default function ProductsPage() {
                 let nameDisplay = item.displayLabel;
                 if (item.depth > 0) nameDisplay = `↳ ${item.displayLabel}`;
 
+                const isUnmatched = !item.isHeader && !mappings[item.name]?.length
+                  && item.depth !== 0
+                  && item.displayLabel !== "단일상품"
+                  && item.displayLabel !== "1개";
+
                 return (
-                  <TableRow key={`${item.name}-${idx}`} sx={{ "&:hover": { backgroundColor: "#f8f9fa" }, backgroundColor: bgColor }}>
+                  <TableRow key={`${item.name}-${idx}`} sx={{ "&:hover": { backgroundColor: isUnmatched ? "#ffe3e3" : "#f8f9fa" }, backgroundColor: isUnmatched ? "#fff5f5" : bgColor }}>
                     {/* 관리 버튼 */}
                     <TableCell sx={{ textAlign: "center", borderBottom: "1px solid #f1f3f5" }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-                        {/* 매핑: isHeader가 아닌 행에서만 */}
-                        {!item.isHeader && (
-                          <IconButton size="small" onClick={() => handleMappingOpen(item.name)} sx={{ p: 0.25 }}>
-                            <LinkIcon sx={{ fontSize: 16, color: mappings[item.name]?.length ? "#343a40" : "#dee2e6" }} />
-                          </IconButton>
+                        {/* 매핑: isHeader, depth=0 단일상품, 단일상품/1개 행 제외 */}
+                        {!item.isHeader && item.depth !== 0 && item.displayLabel !== "단일상품" && item.displayLabel !== "1개" && (
+                          <Tooltip title="상품을 매칭해주세요." placement="top" arrow open={isUnmatched} disableFocusListener disableHoverListener disableTouchListener>
+                            <IconButton size="small" onClick={() => handleMappingOpen(item.name)} sx={{ p: 0.25 }}>
+                              <LinkIcon sx={{ fontSize: 16, color: mappings[item.name]?.length ? "#343a40" : "#dee2e6" }} />
+                            </IconButton>
+                          </Tooltip>
                         )}
 
                         {/* depth 0 기본 상품: 채널 추가, 배수 추가 */}
