@@ -16,7 +16,7 @@ import Container from '@mui/material/Container';
 type Row = {
   id: number;
   sellingPrice: number | '';
-  chinaPrice: number | '';
+  chinaPrice: number | string;
   grossCost: number | '';
 };
 
@@ -79,6 +79,7 @@ function PriceInput({
   onBlur,
   placeholder,
   unit = '₩',
+  decimal,
 }: {
   value: number | '';
   onChange: (val: string) => void;
@@ -87,6 +88,7 @@ function PriceInput({
   onBlur: () => void;
   placeholder?: string;
   unit?: string;
+  decimal?: boolean;
 }) {
   const displayValue = focused
     ? (value === '' ? '' : String(value))
@@ -97,14 +99,16 @@ function PriceInput({
       size="small"
       value={displayValue}
       onChange={e => {
-        const raw = e.target.value.replace(/[^0-9]/g, '');
+        const raw = decimal
+          ? e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
+          : e.target.value.replace(/[^0-9]/g, '');
         onChange(raw);
       }}
       onFocus={onFocus}
       onBlur={onBlur}
       placeholder={placeholder ?? '0원'}
       sx={inputSx}
-      inputProps={{ inputMode: 'numeric' }}
+      inputProps={{ inputMode: decimal ? 'decimal' : 'numeric' }}
     />
   );
 }
@@ -126,8 +130,8 @@ function CalcTable({
 }) {
   const [focusedCell, setFocusedCell] = useState<FocusedCell>(null);
 
-  const handleChange = (id: number, field: keyof Row, raw: string) => {
-    setRows(rows.map(r => r.id === id ? { ...r, [field]: raw === '' ? '' : Number(raw) } : r));
+  const handleChange = (id: number, field: keyof Row, raw: string, keepRaw = false) => {
+    setRows(rows.map(r => r.id === id ? { ...r, [field]: raw === '' ? '' : (keepRaw ? raw : Number(raw)) } : r));
   };
 
   const isFocused = (id: number, field: keyof Row) =>
@@ -183,11 +187,12 @@ function CalcTable({
                   <TableCell sx={{ ...tdSx, width: 110, p: 0 }} align="right">
                     <PriceInput
                       value={row.chinaPrice}
-                      onChange={v => handleChange(row.id, 'chinaPrice', v)}
+                      onChange={v => handleChange(row.id, 'chinaPrice', v, true)}
                       focused={isFocused(row.id, 'chinaPrice')}
                       onFocus={() => setFocusedCell({ rowId: row.id, field: 'chinaPrice' })}
                       onBlur={() => setFocusedCell(null)}
                       unit="¥"
+                      decimal
                     />
                   </TableCell>
                   {/* 매입가 */}
