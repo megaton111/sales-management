@@ -81,7 +81,7 @@ function PriceInput({
   unit = '₩',
   decimal,
 }: {
-  value: number | '';
+  value: number | string;
   onChange: (val: string) => void;
   focused: boolean;
   onFocus: () => void;
