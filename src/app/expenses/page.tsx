@@ -138,7 +138,8 @@ export default function ExpensesPage() {
 
   const monthButtons = Array.from({ length: currentMonth }, (_, i) => i + 1);
 
-  const [newDate, setNewDate] = useState('');
+  const todayStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [newDate, setNewDate] = useState(todayStr);
   const [newType, setNewType] = useState(EXPENSE_TYPES[0]);
   const [newAmount, setNewAmount] = useState('');
   const [newMemo, setNewMemo] = useState('');
