@@ -336,6 +336,108 @@ function CostRegisterForm() {
         average_unit_cost: avgCost,
       });
 
+      // 다른 스토어에 동일 상품이 있으면 전체 동기화
+      const { data: linkedStores } = await supabase
+        .from("product_averages")
+        .select("store_id")
+        .eq("name", form.name)
+        .neq("store_id", storeId);
+      for (const linked of linkedStores || []) {
+        // 신규 매입인 경우 구매 기록도 복사
+        if (!isEdit) {
+          const linkedProductId = generateProductId();
+          await supabase.from("products").insert({
+            ...payload,
+            id: linkedProductId,
+            store_id: linked.store_id,
+          });
+          if (hasOptions) {
+            const linkedOptionRows = calc.optionCalcs
+              .filter((o) => num(o.quantity) > 0 && num(o.unitPriceForeign) > 0)
+              .map((o) => ({
+                product_id: linkedProductId,
+                size: o.size,
+                quantity: num(o.quantity),
+                unit_price_foreign: num(o.unitPriceForeign),
+                unit_price_krw: o.unitPriceKrw,
+                unit_cost: o.unitCost,
+                total_cost: o.totalCost,
+              }));
+            if (linkedOptionRows.length > 0) {
+              await supabase.from("product_options").insert(linkedOptionRows);
+            }
+          }
+        }
+
+        // history 동기화
+        await supabase.from("product_cost_history").insert({
+          name: form.name,
+          store_id: linked.store_id,
+          average_unit_cost: avgCost,
+        });
+
+        // averages 동기화
+        await supabase.from("product_averages").upsert({
+          name: form.name,
+          store_id: linked.store_id,
+          average_unit_cost: avgCost,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "name,store_id" });
+
+        // product_sales 동기화 (기본 상품)
+        const { data: linkedSaleRow } = await supabase
+          .from("product_sales")
+          .select("selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee")
+          .eq("name", form.name)
+          .eq("store_id", linked.store_id)
+          .single();
+        if (linkedSaleRow) {
+          const linkedProfit = linkedSaleRow.selling_price - linkedSaleRow.market_commission - avgCost - linkedSaleRow.warehouse_fee - linkedSaleRow.shipping_fee - linkedSaleRow.barcode_fee - linkedSaleRow.box_fee;
+          await supabase.from("product_sales").update({
+            unit_cost: avgCost,
+            profit: linkedProfit,
+            updated_at: new Date().toISOString(),
+          }).eq("name", form.name).eq("store_id", linked.store_id);
+        }
+
+        // 번들 변형 동기화
+        const { data: linkedBundles } = await supabase
+          .from("product_sales")
+          .select("name, multiplier, selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee")
+          .eq("base_name", form.name)
+          .eq("store_id", linked.store_id)
+          .gt("multiplier", 1);
+        for (const bs of linkedBundles || []) {
+          const bundleUnitCost = avgCost * bs.multiplier;
+          const supplyPrice = Math.round(bs.selling_price / 1.1);
+          const bundleProfit = supplyPrice - bs.market_commission - bundleUnitCost - bs.warehouse_fee - bs.shipping_fee - bs.barcode_fee - bs.box_fee - (bs.other_fee || 0);
+          await supabase.from("product_sales").update({
+            unit_cost: bundleUnitCost,
+            profit: bundleProfit,
+            updated_at: new Date().toISOString(),
+          }).eq("name", bs.name).eq("store_id", linked.store_id);
+        }
+
+        // 채널 변형 동기화
+        const { data: linkedChannelVariants } = await supabase
+          .from("product_sales")
+          .select("name, selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee")
+          .eq("base_name", form.name)
+          .eq("store_id", linked.store_id)
+          .eq("multiplier", 1)
+          .neq("name", form.name)
+          .is("option_size", null);
+        for (const cv of linkedChannelVariants || []) {
+          const supplyPrice = Math.round(cv.selling_price / 1.1);
+          const cvProfit = supplyPrice - cv.market_commission - avgCost - cv.warehouse_fee - cv.shipping_fee - cv.barcode_fee - cv.box_fee - (cv.other_fee || 0);
+          await supabase.from("product_sales").update({
+            unit_cost: avgCost,
+            profit: cvProfit,
+            updated_at: new Date().toISOString(),
+          }).eq("name", cv.name).eq("store_id", linked.store_id);
+        }
+      }
+
       const { data: saleRow } = await supabase
         .from("product_sales")
         .select("selling_price, market_commission, warehouse_fee, shipping_fee, barcode_fee, box_fee")

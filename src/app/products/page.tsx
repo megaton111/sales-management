@@ -1332,36 +1332,38 @@ export default function ProductsPage() {
       {/* 평균 원가 변동 히스토리 다이얼로그 */}
       <Dialog open={costHistory?.open ?? false} onClose={() => setCostHistory(null)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontSize: "1rem" }}>평균 원가 변동 — {costHistory?.productName}</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column' }}>
           {costHistory?.items.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 3 }}>
               원가 변동 이력이 없습니다.
             </Typography>
           ) : (
             <>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem" }}>변경일</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.8rem" }}>평균 원가</TableCell>
-                    {(costHistory?.multiplier ?? 1) > 1 && (
-                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.8rem" }}>x{costHistory?.multiplier} 원가</TableCell>
-                    )}
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {costHistory?.items.map((item, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell sx={{ fontSize: "0.8rem" }}>{new Date(item.created_at).toLocaleDateString("ko-KR")}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: "0.8rem" }}>{fmt(Number(item.average_unit_cost))}원</TableCell>
+              <Box sx={{ overflowY: 'auto', maxHeight: 360, px: 3, pt: 1 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, fontSize: "0.8rem" }}>변경일</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.8rem" }}>평균 원가</TableCell>
                       {(costHistory?.multiplier ?? 1) > 1 && (
-                        <TableCell align="right" sx={{ fontSize: "0.8rem" }}>{fmt(Number(item.average_unit_cost) * (costHistory?.multiplier ?? 1))}원</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: "0.8rem" }}>x{costHistory?.multiplier} 원가</TableCell>
                       )}
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <Box sx={{ mt: 2, p: 1.5, backgroundColor: "#f8f9fa", borderRadius: 2 }}>
+                  </TableHead>
+                  <TableBody>
+                    {costHistory?.items.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell sx={{ fontSize: "0.8rem" }}>{new Date(item.created_at).toLocaleDateString("ko-KR")}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: "0.8rem" }}>{fmt(Number(item.average_unit_cost))}원</TableCell>
+                        {(costHistory?.multiplier ?? 1) > 1 && (
+                          <TableCell align="right" sx={{ fontSize: "0.8rem" }}>{fmt(Number(item.average_unit_cost) * (costHistory?.multiplier ?? 1))}원</TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+              <Box sx={{ mx: 3, my: 2, p: 1.5, backgroundColor: "#f8f9fa", borderRadius: 2 }}>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
                   현재 평균 원가: {fmt(costHistory?.currentAvg ?? 0)}원
                   {(costHistory?.multiplier ?? 1) > 1 && (

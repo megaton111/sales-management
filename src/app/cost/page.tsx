@@ -200,6 +200,29 @@ export default function CostPage() {
             updated_at: new Date().toISOString(),
           }, { onConflict: "store_id,name" });
         }
+
+        // history 복사 (대상 스토어의 기존 이력 삭제 후 원본 전체 복사)
+        const { data: srcHistory } = await supabase
+          .from("product_cost_history")
+          .select("name, average_unit_cost, created_at")
+          .eq("name", name)
+          .eq("store_id", currentStore.id)
+          .order("created_at", { ascending: true });
+        if (srcHistory && srcHistory.length > 0) {
+          await supabase
+            .from("product_cost_history")
+            .delete()
+            .eq("name", name)
+            .eq("store_id", copyTargetStoreId);
+          await supabase.from("product_cost_history").insert(
+            srcHistory.map((h) => ({
+              name: h.name,
+              store_id: copyTargetStoreId,
+              average_unit_cost: h.average_unit_cost,
+              created_at: h.created_at,
+            }))
+          );
+        }
       }
       setCopyDialog(false);
       setCopySelected([]);

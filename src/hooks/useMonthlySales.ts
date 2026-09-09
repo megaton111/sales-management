@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { ProductCostData } from './useProductProfits';
+import type { ProductCostData, CostHistoryEntry } from './useProductProfits';
+import { getEffectiveUnitCost } from '@/utils/costHistory';
 
 interface DailySaleRow {
   id: number;
@@ -32,9 +33,10 @@ interface DaySales {
   ssRefundCount: number;
 }
 
-function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData): number {
+function calcItemProfit(saleAmount: number, quantity: number, cost: ProductCostData, overrideUnitCost?: number): number {
   const supplyPrice = Math.round(saleAmount / 1.1);
-  const totalCost = (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * quantity;
+  const unitCost = overrideUnitCost ?? cost.unit_cost;
+  const totalCost = (cost.market_commission + unitCost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * quantity;
   return supplyPrice - totalCost;
 }
 
@@ -42,7 +44,8 @@ export default function useMonthlySales(
   storeId: number | null,
   year: number,
   month: number,
-  costMap?: Map<string, ProductCostData>
+  costMap?: Map<string, ProductCostData>,
+  costHistoryByName?: Map<string, CostHistoryEntry[]>
 ) {
   const [rows, setRows] = useState<DailySaleRow[]>([]);
   const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
@@ -99,8 +102,11 @@ export default function useMonthlySales(
         const vKey = (item.vendor_item_name || '').trim().replace(/\s+/g, ' ');
         const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey)
           ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+        const effectiveUnitCost = (cost && costHistoryByName)
+          ? getEffectiveUnitCost(costHistoryByName, cost, item.sale_date)
+          : undefined;
         const itemProfit = cost
-          ? calcItemProfit(item.sale_amount, item.quantity, cost)
+          ? calcItemProfit(item.sale_amount, item.quantity, cost, effectiveUnitCost)
           : item.unit_profit * item.quantity;
         if (item.channel === 'marketplace') {
           existing.marketplaceProfit += itemProfit;
@@ -113,7 +119,7 @@ export default function useMonthlySales(
     }
 
     return map;
-  }, [rows, saleItems, costMap]);
+  }, [rows, saleItems, costMap, costHistoryByName]);
 
   const totalMarketplace = useMemo(() =>
     rows.filter(r => r.channel === 'marketplace').reduce((sum, r) => sum + Number(r.total_sale_amount), 0),

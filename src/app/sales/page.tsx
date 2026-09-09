@@ -38,6 +38,7 @@ import useMonthlySales from '@/hooks/useMonthlySales';
 import useDailySalesDetail from '@/hooks/useDailySalesDetail';
 import useProductProfits from '@/hooks/useProductProfits';
 import useExpenses from '@/hooks/useExpenses';
+import { getEffectiveUnitCost } from '@/utils/costHistory';
 
 const cardSx = {
   p: 2,
@@ -85,11 +86,11 @@ export default function SalesPage() {
   const { currentStore } = useStore();
   const router = useRouter();
 
-  const { costMap } = useProductProfits(currentStore?.id ?? null);
+  const { costMap, costHistoryByName } = useProductProfits(currentStore?.id ?? null);
   const { totalAmount: totalExpenses } = useExpenses(currentStore?.id ?? null, year, month);
 
   const { dailySalesMap, totalMarketplace, totalRocketGrowth, totalSmartstore, totalProfit, totalMarketplaceProfit, totalRocketGrowthProfit, totalSmartstoreProfit, totalRefundCount, totalOrderCount, loading, refetch } = useMonthlySales(
-    currentStore?.id ?? null, year, month, costMap
+    currentStore?.id ?? null, year, month, costMap, costHistoryByName
   );
 
   const netProfit = totalProfit - totalExpenses;
@@ -103,6 +104,13 @@ export default function SalesPage() {
       fetchMonthly(year, month, 'all', `${month}월 전체`);
     }
   }, [loading, currentStore, year, month, fetchMonthly]);
+
+  const getCostAtDate = (pKey: string, vKey: string, channel: string, date?: string | null) => {
+    const cost = costMap.get(`${vKey}|${channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${channel}`) ?? costMap.get(pKey);
+    if (!cost || !date || costHistoryByName.size === 0) return cost;
+    const effectiveUnitCost = getEffectiveUnitCost(costHistoryByName, cost, date);
+    return { ...cost, unit_cost: effectiveUnitCost };
+  };
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false, message: '', severity: 'success'
@@ -422,7 +430,7 @@ export default function SalesPage() {
     const totalProfit = tableItems.reduce((sum, item) => {
       const pKey = item.product_name.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
       const vKey = (item.vendor_item_name || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
-      const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+      const cost = getCostAtDate(pKey, vKey, item.channel, selectedDate);
       const itemProfit = cost
         ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
         : item.unit_profit * item.quantity;
@@ -445,7 +453,7 @@ export default function SalesPage() {
           {tableItems.map((item) => {
             const pKey = item.product_name.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
             const vKey = (item.vendor_item_name || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
-            const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+            const cost = getCostAtDate(pKey, vKey, item.channel, selectedDate);
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
               : item.unit_profit * item.quantity;
@@ -537,7 +545,7 @@ export default function SalesPage() {
     const totalProfit = tableItems.reduce((sum, item) => {
       const pKey = item.product_name.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
       const vKey = (item.vendor_item_name || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
-      const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+      const cost = getCostAtDate(pKey, vKey, item.channel, selectedDate);
       const itemProfit = cost
         ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
         : item.unit_profit * item.quantity;
@@ -562,7 +570,7 @@ export default function SalesPage() {
           {tableItems.map((item) => {
             const pKey = item.product_name.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
             const vKey = (item.vendor_item_name || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
-            const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+            const cost = getCostAtDate(pKey, vKey, item.channel, selectedDate);
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
               : item.unit_profit * item.quantity;
@@ -661,7 +669,7 @@ export default function SalesPage() {
     const totalProfit = tableItems.reduce((sum, item) => {
       const pKey = item.product_name.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
       const vKey = (item.vendor_item_name || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
-      const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+      const cost = getCostAtDate(pKey, vKey, item.channel, selectedDate);
       const itemProfit = cost
         ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
         : item.unit_profit * item.quantity;
@@ -684,7 +692,7 @@ export default function SalesPage() {
           {tableItems.map((item) => {
             const pKey = item.product_name.trim().replace(/\s+/g, ' ');
             const vKey = (item.vendor_item_name || '').trim().replace(/\s+/g, ' ');
-            const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+            const cost = getCostAtDate(pKey, vKey, item.channel, selectedDate);
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
               : item.unit_profit * item.quantity;
@@ -826,7 +834,7 @@ export default function SalesPage() {
           {tableItems.map((item) => {
             const pKey = item.product_name.trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
             const vKey = (item.vendor_item_name || '').trim().replace(/,/g, ' ').replace(/\s+/g, ' ');
-            const cost = costMap.get(`${vKey}|${item.channel}`) ?? costMap.get(vKey) ?? costMap.get(`${pKey}|${item.channel}`) ?? costMap.get(pKey);
+            const cost = getCostAtDate(pKey, vKey, item.channel, selectedDate);
             const itemProfit = cost
               ? Math.round(item.sale_amount / 1.1) - (cost.market_commission + cost.unit_cost + cost.warehouse_fee + cost.shipping_fee + cost.barcode_fee + cost.box_fee + cost.other_fee) * item.quantity
               : item.unit_profit * item.quantity;

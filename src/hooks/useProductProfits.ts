@@ -11,10 +11,18 @@ export interface ProductCostData {
   other_fee: number;
   multiplier: number;
   base_name: string | null;
+  sale_name: string;
+  option_size: string | null;
+}
+
+export interface CostHistoryEntry {
+  average_unit_cost: number;
+  created_at: string;
 }
 
 export default function useProductProfits(storeId: number | null) {
   const [costMap, setCostMap] = useState<Map<string, ProductCostData>>(new Map());
+  const [costHistoryByName, setCostHistoryByName] = useState<Map<string, CostHistoryEntry[]>>(new Map());
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -24,13 +32,20 @@ export default function useProductProfits(storeId: number | null) {
       setLoading(true);
       const supabase = createClient();
 
-      const [{ data: salesData }, mappingRes] = await Promise.all([
-        supabase.from('product_sales').select('name, selling_price, market_commission, unit_cost, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee, multiplier, base_name').eq('store_id', storeId),
+      const [{ data: salesData }, mappingRes, { data: historyData }] = await Promise.all([
+        supabase.from('product_sales').select('name, selling_price, market_commission, unit_cost, warehouse_fee, shipping_fee, barcode_fee, box_fee, other_fee, multiplier, base_name, option_size').eq('store_id', storeId),
         fetch(`/api/product-mapping?storeId=${storeId}`).then(r => r.json()),
+        supabase.from('product_cost_history').select('name, average_unit_cost, created_at').eq('store_id', storeId).order('created_at', { ascending: true }),
       ]);
 
+      const historyMap = new Map<string, CostHistoryEntry[]>();
+      for (const h of (historyData || [])) {
+        if (!historyMap.has(h.name)) historyMap.set(h.name, []);
+        historyMap.get(h.name)!.push({ average_unit_cost: Number(h.average_unit_cost), created_at: h.created_at });
+      }
+
       const saleCostMap: Record<string, ProductCostData> = {};
-      (salesData || []).forEach((s: ProductCostData & { name: string; selling_price: number }) => {
+      (salesData || []).forEach((s: { name: string; selling_price: number; market_commission: number; unit_cost: number; warehouse_fee: number; shipping_fee: number; barcode_fee: number; box_fee: number; other_fee: number; multiplier: number; base_name: string | null; option_size: string | null }) => {
         saleCostMap[s.name] = {
           market_commission: s.market_commission || Math.round((s.selling_price || 0) * 0.12),
           unit_cost: s.unit_cost || 0,
@@ -41,6 +56,8 @@ export default function useProductProfits(storeId: number | null) {
           other_fee: s.other_fee || 0,
           multiplier: s.multiplier || 1,
           base_name: s.base_name,
+          sale_name: s.name,
+          option_size: s.option_size ?? null,
         };
       });
 
@@ -93,11 +110,12 @@ export default function useProductProfits(storeId: number | null) {
         }
       });
       setCostMap(map);
+      setCostHistoryByName(historyMap);
       setLoading(false);
     };
 
     fetchData();
   }, [storeId]);
 
-  return { costMap, loading };
+  return { costMap, costHistoryByName, loading };
 }
