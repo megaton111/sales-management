@@ -62,11 +62,13 @@ export default function DashboardPage() {
   const yearOptions = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
   const { costMap } = useProductProfits(currentStore?.id ?? null);
-  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek, productMonthlyData } = useDashboard(
+  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, refundRanking, expenseByType, ordersByDayOfWeek, productMonthlyData } = useDashboard(
     currentStore?.id ?? null, year, costMap, month
   );
   const { targets, saveTarget } = useSalesTargets(currentStore?.id ?? null, year);
   const [rankMode, setRankMode] = useState<'quantity' | 'amount' | 'profit'>('quantity');
+  const [showAllRanking, setShowAllRanking] = useState(false);
+  const [showAllRefund, setShowAllRefund] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
@@ -715,47 +717,31 @@ export default function DashboardPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      sorted.map((item, idx) => (
+                      (showAllRanking ? sorted : sorted.slice(0, 20)).map((item, idx) => (
                         <TableRow key={`${item.channel}-${item.name}-${idx}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
                           <TableCell sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
                             {idx < 3 ? (
-                              <Chip
-                                label={idx + 1}
-                                size="small"
-                                sx={{
-                                  fontWeight: 700, fontSize: '0.75rem', height: 24, minWidth: 24,
-                                  backgroundColor: idx === 0 ? '#fff9db' : idx === 1 ? '#f1f3f5' : '#fff4e6',
-                                  color: idx === 0 ? '#e67700' : idx === 1 ? '#868e96' : '#d9480f',
-                                }}
-                              />
+                              <Chip label={idx + 1} size="small" sx={{ fontWeight: 700, fontSize: '0.75rem', height: 24, minWidth: 24, backgroundColor: idx === 0 ? '#fff9db' : idx === 1 ? '#f1f3f5' : '#fff4e6', color: idx === 0 ? '#e67700' : idx === 1 ? '#868e96' : '#d9480f' }} />
                             ) : (
                               <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd', pl: 0.8 }}>{idx + 1}</Typography>
                             )}
                           </TableCell>
                           <TableCell sx={{ fontSize: '0.85rem', color: '#1a1a1b', fontWeight: idx < 3 ? 600 : 400, borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                              {item.channel === 'smartstore' && (
-                                <Chip label="스마트스토어" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#ebfbee', color: '#2f9e44', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
-                              )}
-                              {item.channel === 'marketplace' && (
-                                <Chip label="판매자배송" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#e7f5ff', color: '#1971c2', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
-                              )}
-                              {item.channel === 'rocket_growth' && (
-                                <Chip label="로켓그로스" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#fff4e6', color: '#e67700', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
-                              )}
+                              {item.channel === 'smartstore' && <Chip label="스마트스토어" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#ebfbee', color: '#2f9e44', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />}
+                              {item.channel === 'marketplace' && <Chip label="판매자배송" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#e7f5ff', color: '#1971c2', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />}
+                              {item.channel === 'rocket_growth' && <Chip label="로켓그로스" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#fff4e6', color: '#e67700', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />}
                               {item.name}
                             </Box>
                           </TableCell>
                           <TableCell align="right" sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
                             {rankMode === 'quantity' ? (
                               <Typography component="span" sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#495057' }}>
-                                {formatNumber(item.quantity)}
-                                <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
+                                {formatNumber(item.quantity)}<Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
                               </Typography>
                             ) : (
                               <Typography component="span" sx={{ fontSize: '0.85rem', fontWeight: 600, color: rankMode === 'profit' ? (item.profit >= 0 ? '#2b8a3e' : '#e03131') : '#495057' }}>
-                                {formatNumber(rankMode === 'amount' ? item.amount : item.profit)}
-                                <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
+                                {formatNumber(rankMode === 'amount' ? item.amount : item.profit)}<Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
                               </Typography>
                             )}
                           </TableCell>
@@ -765,6 +751,83 @@ export default function DashboardPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              {!loading && sorted.length > 20 && (
+                <Box sx={{ textAlign: 'center', pt: 1.5 }}>
+                  <Button size="small" onClick={() => setShowAllRanking(p => !p)}
+                    sx={{ fontSize: '0.78rem', color: '#868e96', textTransform: 'none', '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                    {showAllRanking ? `닫기 ▲` : `${sorted.length - 20}개 더 보기 ▼`}
+                  </Button>
+                </Box>
+              )}
+            </Paper>
+          );
+        })()}
+
+        {/* 반품 순위 */}
+        {(() => {
+          const visible = showAllRefund ? refundRanking : refundRanking.slice(0, 20);
+          return (
+            <Paper sx={{ ...cardSx, mb: 1 }}>
+              <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>반품 순위</Typography>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', width: 60, py: 1.2 }}>#</TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', py: 1.2 }}>제품명</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', width: 130, py: 1.2 }}>반품건수</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={24} height={24} sx={{ borderRadius: 1 }} /></TableCell>
+                          <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width="70%" height={16} sx={{ borderRadius: 1 }} /></TableCell>
+                          <TableCell align="right" sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={60} height={16} sx={{ borderRadius: 1, ml: 'auto' }} /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : refundRanking.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ textAlign: 'center', py: 5, color: '#adb5bd', borderBottom: 'none' }}>반품 데이터가 없습니다</TableCell>
+                      </TableRow>
+                    ) : (
+                      visible.map((item, idx) => (
+                        <TableRow key={`${item.channel}-${item.name}-${idx}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                          <TableCell sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
+                            {idx < 3 ? (
+                              <Chip label={idx + 1} size="small" sx={{ fontWeight: 700, fontSize: '0.75rem', height: 24, minWidth: 24, backgroundColor: idx === 0 ? '#fff9db' : idx === 1 ? '#f1f3f5' : '#fff4e6', color: idx === 0 ? '#e67700' : idx === 1 ? '#868e96' : '#d9480f' }} />
+                            ) : (
+                              <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd', pl: 0.8 }}>{idx + 1}</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.85rem', color: '#1a1a1b', fontWeight: idx < 3 ? 600 : 400, borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                              {item.channel === 'smartstore' && <Chip label="스마트스토어" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#ebfbee', color: '#2f9e44', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />}
+                              {item.channel === 'marketplace' && <Chip label="판매자배송" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#e7f5ff', color: '#1971c2', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />}
+                              {item.channel === 'rocket_growth' && <Chip label="로켓그로스" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#fff4e6', color: '#e67700', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />}
+                              {item.name}
+                            </Box>
+                          </TableCell>
+                          <TableCell align="right" sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
+                            <Typography component="span" sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#e03131' }}>
+                              {formatNumber(item.count)}<Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              {!loading && refundRanking.length > 20 && (
+                <Box sx={{ textAlign: 'center', pt: 1.5 }}>
+                  <Button size="small" onClick={() => setShowAllRefund(p => !p)}
+                    sx={{ fontSize: '0.78rem', color: '#868e96', textTransform: 'none', '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                    {showAllRefund ? `닫기 ▲` : `${refundRanking.length - 20}개 더 보기 ▼`}
+                  </Button>
+                </Box>
+              )}
             </Paper>
           );
         })()}
