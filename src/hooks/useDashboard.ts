@@ -180,7 +180,7 @@ export default function useDashboard(
   }, [sales, items, expenses, filteredSales, filteredItems, filteredExpenses, costMap, year, month, currentMonth]);
 
   const salesRanking = useMemo(() => {
-    const map = new Map<string, { name: string; channel: string; quantity: number }>();
+    const map = new Map<string, { name: string; channel: string; quantity: number; amount: number; profit: number }>();
     for (const item of filteredItems) {
       const vin = item.vendor_item_name;
       const displayName = !vin || vin === item.product_name
@@ -189,16 +189,19 @@ export default function useDashboard(
           ? vin
           : `${item.product_name} ${vin}`;
       const key = `${item.channel}|${displayName}`;
+      const cost = costMap.get(`${item.product_name.trim().replace(/\s+/g, ' ')}|${item.channel}`) ?? costMap.get(item.product_name.trim().replace(/\s+/g, ' '));
+      const profit = cost ? calcItemProfit(item.sale_amount, item.quantity, cost) : 0;
       const existing = map.get(key);
       if (existing) {
         existing.quantity += item.quantity;
+        existing.amount += item.sale_amount;
+        existing.profit += profit;
       } else {
-        map.set(key, { name: displayName, channel: item.channel, quantity: item.quantity });
+        map.set(key, { name: displayName, channel: item.channel, quantity: item.quantity, amount: item.sale_amount, profit });
       }
     }
-    return Array.from(map.values())
-      .sort((a, b) => b.quantity - a.quantity);
-  }, [filteredItems]);
+    return Array.from(map.values());
+  }, [filteredItems, costMap]);
 
   const expenseByType = useMemo(() => {
     const map = new Map<string, number>();

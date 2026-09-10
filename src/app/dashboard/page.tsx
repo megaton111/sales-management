@@ -66,6 +66,7 @@ export default function DashboardPage() {
     currentStore?.id ?? null, year, costMap, month
   );
   const { targets, saveTarget } = useSalesTargets(currentStore?.id ?? null, year);
+  const [rankMode, setRankMode] = useState<'quantity' | 'amount' | 'profit'>('quantity');
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [syncing, setSyncing] = useState(false);
@@ -524,84 +525,120 @@ export default function DashboardPage() {
         </Paper>
 
         {/* 판매 순위 */}
-        <Paper sx={cardSx}>
-          <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>판매 순위</Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', width: 60, py: 1.2 }}>#</TableCell>
-                  <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', py: 1.2 }}>제품명</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', width: 120, py: 1.2 }}>판매건수</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 6 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
-                        <Skeleton variant="rounded" width={24} height={24} sx={{ borderRadius: 1 }} />
-                      </TableCell>
-                      <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
-                        <Skeleton variant="rounded" width="70%" height={16} sx={{ borderRadius: 1 }} />
-                      </TableCell>
-                      <TableCell align="right" sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
-                        <Skeleton variant="rounded" width={60} height={16} sx={{ borderRadius: 1, ml: 'auto' }} />
-                      </TableCell>
+        {(() => {
+          const rankModes = [
+            { key: 'quantity', label: '판매건수' },
+            { key: 'amount', label: '매출' },
+            { key: 'profit', label: '순이익' },
+          ] as const;
+          const sorted = [...salesRanking].sort((a, b) => b[rankMode] - a[rankMode]);
+          const colLabel = rankModes.find(m => m.key === rankMode)!.label;
+          return (
+            <Paper sx={cardSx}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96' }}>판매 순위</Typography>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  {rankModes.map(({ key, label }) => (
+                    <Button
+                      key={key}
+                      size="small"
+                      onClick={() => setRankMode(key)}
+                      sx={{
+                        fontSize: '0.72rem', minWidth: 0, px: 1.2, py: 0.3, borderRadius: 1.5,
+                        backgroundColor: rankMode === key ? '#1a1a1b' : 'transparent',
+                        color: rankMode === key ? '#fff' : '#868e96',
+                        '&:hover': { backgroundColor: rankMode === key ? '#1a1a1b' : '#f1f3f5' },
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', width: 60, py: 1.2 }}>#</TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', py: 1.2 }}>제품명</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', width: 130, py: 1.2 }}>{colLabel}</TableCell>
                     </TableRow>
-                  ))
-                ) : salesRanking.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} sx={{ textAlign: 'center', py: 5, color: '#adb5bd', borderBottom: 'none' }}>
-                      판매 데이터가 없습니다
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  salesRanking.map((item, idx) => (
-                    <TableRow key={`${item.name}-${idx}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
-                      <TableCell sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
-                        {idx < 3 ? (
-                          <Chip
-                            label={idx + 1}
-                            size="small"
-                            sx={{
-                              fontWeight: 700,
-                              fontSize: '0.75rem',
-                              height: 24,
-                              minWidth: 24,
-                              backgroundColor: idx === 0 ? '#fff9db' : idx === 1 ? '#f1f3f5' : idx === 2 ? '#fff4e6' : 'transparent',
-                              color: idx === 0 ? '#e67700' : idx === 1 ? '#868e96' : '#d9480f',
-                            }}
-                          />
-                        ) : (
-                          <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd', pl: 0.8 }}>{idx + 1}</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.85rem', color: '#1a1a1b', fontWeight: idx < 3 ? 600 : 400, borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                          {item.channel === 'smartstore' && (
-                            <Chip label="스마트스토어" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#ebfbee', color: '#2f9e44', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
-                          )}
-                          {item.channel === 'marketplace' && (
-                            <Chip label="판매자배송" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#e7f5ff', color: '#1971c2', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
-                          )}
-                          {item.channel === 'rocket_growth' && (
-                            <Chip label="로켓그로스" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#fff4e6', color: '#e67700', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
-                          )}
-                          {item.name}
-                        </Box>
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#495057', borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
-                        {formatNumber(item.quantity)}
-                        <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+                  </TableHead>
+                  <TableBody>
+                    {loading ? (
+                      Array.from({ length: 6 }).map((_, i) => (
+                        <TableRow key={i}>
+                          <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
+                            <Skeleton variant="rounded" width={24} height={24} sx={{ borderRadius: 1 }} />
+                          </TableCell>
+                          <TableCell sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
+                            <Skeleton variant="rounded" width="70%" height={16} sx={{ borderRadius: 1 }} />
+                          </TableCell>
+                          <TableCell align="right" sx={{ py: 1.5, borderBottom: '1px solid #f1f3f5' }}>
+                            <Skeleton variant="rounded" width={60} height={16} sx={{ borderRadius: 1, ml: 'auto' }} />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : sorted.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ textAlign: 'center', py: 5, color: '#adb5bd', borderBottom: 'none' }}>
+                          판매 데이터가 없습니다
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      sorted.map((item, idx) => (
+                        <TableRow key={`${item.channel}-${item.name}-${idx}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                          <TableCell sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
+                            {idx < 3 ? (
+                              <Chip
+                                label={idx + 1}
+                                size="small"
+                                sx={{
+                                  fontWeight: 700, fontSize: '0.75rem', height: 24, minWidth: 24,
+                                  backgroundColor: idx === 0 ? '#fff9db' : idx === 1 ? '#f1f3f5' : '#fff4e6',
+                                  color: idx === 0 ? '#e67700' : idx === 1 ? '#868e96' : '#d9480f',
+                                }}
+                              />
+                            ) : (
+                              <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd', pl: 0.8 }}>{idx + 1}</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.85rem', color: '#1a1a1b', fontWeight: idx < 3 ? 600 : 400, borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                              {item.channel === 'smartstore' && (
+                                <Chip label="스마트스토어" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#ebfbee', color: '#2f9e44', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
+                              )}
+                              {item.channel === 'marketplace' && (
+                                <Chip label="판매자배송" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#e7f5ff', color: '#1971c2', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
+                              )}
+                              {item.channel === 'rocket_growth' && (
+                                <Chip label="로켓그로스" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#fff4e6', color: '#e67700', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
+                              )}
+                              {item.name}
+                            </Box>
+                          </TableCell>
+                          <TableCell align="right" sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
+                            {rankMode === 'quantity' ? (
+                              <Typography component="span" sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#495057' }}>
+                                {formatNumber(item.quantity)}
+                                <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>건</Typography>
+                              </Typography>
+                            ) : (
+                              <Typography component="span" sx={{ fontSize: '0.85rem', fontWeight: 600, color: rankMode === 'profit' ? (item.profit >= 0 ? '#2b8a3e' : '#e03131') : '#495057' }}>
+                                {formatNumber(rankMode === 'amount' ? item.amount : item.profit)}
+                                <Typography component="span" sx={{ fontSize: '0.75rem', fontWeight: 400, color: '#adb5bd', ml: 0.3 }}>원</Typography>
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          );
+        })()}
       </Container>
   );
 }
