@@ -40,17 +40,15 @@ export default function useDashboard(
   const [items, setItems] = useState<SaleItem[]>([]);
   const [prevItems, setPrevItems] = useState<SaleItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
-  const [refundRanking, setRefundRanking] = useState<{ name: string; channel: string; count: number }[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!storeId) return;
     setLoading(true);
     try {
-      const [res, prevRes, refundRes] = await Promise.all([
+      const [res, prevRes] = await Promise.all([
         fetch(`/api/dashboard?year=${year}&storeId=${storeId}`),
         fetch(`/api/dashboard?year=${year - 1}&storeId=${storeId}`),
-        fetch(`/api/dashboard/refunds?year=${year}&storeId=${storeId}`),
       ]);
       const json = await res.json();
       if (res.ok) {
@@ -61,10 +59,6 @@ export default function useDashboard(
       if (prevRes.ok) {
         const prevJson = await prevRes.json();
         setPrevItems(prevJson.items ?? []);
-      }
-      if (refundRes.ok) {
-        const refundJson = await refundRes.json();
-        setRefundRanking(refundJson.refunds ?? []);
       }
     } finally {
       setLoading(false);
@@ -311,5 +305,5 @@ export default function useDashboard(
       .sort((a, b) => b.amount - a.amount);
   }, [expenses]);
 
-  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, refundRanking, expenseByType, ordersByDayOfWeek, productMonthlyData, currentMonth, selectedMonth: month };
+  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek, productMonthlyData, currentMonth, selectedMonth: month };
 }
