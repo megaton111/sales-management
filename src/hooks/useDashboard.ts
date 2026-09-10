@@ -11,6 +11,7 @@ interface SaleItem {
   sale_date: string;
   channel: string;
   product_name: string;
+  vendor_item_name: string;
   quantity: number;
   unit_profit: number;
   sale_amount: number;
@@ -179,12 +180,23 @@ export default function useDashboard(
   }, [sales, items, expenses, filteredSales, filteredItems, filteredExpenses, costMap, year, month, currentMonth]);
 
   const salesRanking = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { name: string; channel: string; quantity: number }>();
     for (const item of filteredItems) {
-      map.set(item.product_name, (map.get(item.product_name) || 0) + item.quantity);
+      const vin = item.vendor_item_name;
+      const displayName = !vin || vin === item.product_name
+        ? item.product_name
+        : vin.startsWith(item.product_name)
+          ? vin
+          : `${item.product_name} ${vin}`;
+      const key = `${item.channel}|${displayName}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        map.set(key, { name: displayName, channel: item.channel, quantity: item.quantity });
+      }
     }
-    return Array.from(map.entries())
-      .map(([name, quantity]) => ({ name, quantity }))
+    return Array.from(map.values())
       .sort((a, b) => b.quantity - a.quantity);
   }, [filteredItems]);
 

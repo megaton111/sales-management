@@ -451,7 +451,7 @@ export default function DashboardPage() {
                   </TableRow>
                 ) : (
                   salesRanking.map((item, idx) => (
-                    <TableRow key={item.name} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
+                    <TableRow key={`${item.name}-${idx}`} sx={{ '&:hover': { backgroundColor: '#f8f9fa' } }}>
                       <TableCell sx={{ borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
                         {idx < 3 ? (
                           <Chip
@@ -471,7 +471,18 @@ export default function DashboardPage() {
                         )}
                       </TableCell>
                       <TableCell sx={{ fontSize: '0.85rem', color: '#1a1a1b', fontWeight: idx < 3 ? 600 : 400, borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
-                        {item.name}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                          {item.channel === 'smartstore' && (
+                            <Chip label="스마트스토어" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#ebfbee', color: '#2f9e44', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
+                          )}
+                          {item.channel === 'marketplace' && (
+                            <Chip label="판매자배송" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#e7f5ff', color: '#1971c2', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
+                          )}
+                          {item.channel === 'rocket_growth' && (
+                            <Chip label="로켓그로스" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, backgroundColor: '#fff4e6', color: '#e67700', borderRadius: '4px', '& .MuiChip-label': { px: 0.8 } }} />
+                          )}
+                          {item.name}
+                        </Box>
                       </TableCell>
                       <TableCell align="right" sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#495057', borderBottom: '1px solid #f1f3f5', py: 1.5 }}>
                         {formatNumber(item.quantity)}
