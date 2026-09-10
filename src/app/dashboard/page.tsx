@@ -28,7 +28,7 @@ import IconButton from '@mui/material/IconButton';
 import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useProductProfits from '@/hooks/useProductProfits';
 import useDashboard from '@/hooks/useDashboard';
@@ -62,11 +62,12 @@ export default function DashboardPage() {
   const yearOptions = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
   const { costMap } = useProductProfits(currentStore?.id ?? null);
-  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek } = useDashboard(
+  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek, productMonthlyData } = useDashboard(
     currentStore?.id ?? null, year, costMap, month
   );
   const { targets, saveTarget } = useSalesTargets(currentStore?.id ?? null, year);
   const [rankMode, setRankMode] = useState<'quantity' | 'amount' | 'profit'>('quantity');
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [editingTarget, setEditingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [syncing, setSyncing] = useState(false);
@@ -561,6 +562,92 @@ export default function DashboardPage() {
                     );
                   })}
                 </Box>
+              )}
+            </Paper>
+          );
+        })()}
+
+        {/* 상품별 월별 주문 추이 */}
+        {(() => {
+          const LINE_COLORS = ['#1971c2', '#2b8a3e', '#e67700', '#c92a2a', '#7048e8', '#0c8599', '#d6336c', '#5c940d', '#a61e4d', '#364fc7'];
+          const { keys, rows } = productMonthlyData;
+          const active = selectedProducts.size > 0 ? selectedProducts : new Set(keys.slice(0, 5));
+
+          const getChannelLabel = (key: string) => {
+            if (key.startsWith('smartstore|')) return '스마트스토어';
+            if (key.startsWith('marketplace|')) return '판매자배송';
+            if (key.startsWith('rocket_growth|')) return '로켓그로스';
+            return '';
+          };
+          const getProductName = (key: string) => key.replace(/^[^|]+\|/, '');
+
+          return (
+            <Paper sx={{ ...cardSx, mb: 1 }}>
+              <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 1.5 }}>
+                상품별 월별 주문 추이
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width="100%" height={260} sx={{ borderRadius: 2 }} />
+              ) : keys.length === 0 ? (
+                <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd', textAlign: 'center', py: 4 }}>데이터가 없습니다</Typography>
+              ) : (
+                <>
+                  {/* 상품 선택 토글 */}
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 2 }}>
+                    {keys.map((key, i) => {
+                      const isOn = active.has(key);
+                      const color = LINE_COLORS[i % LINE_COLORS.length];
+                      const channelLabel = getChannelLabel(key);
+                      const productName = getProductName(key);
+                      return (
+                        <Box
+                          key={key}
+                          onClick={() => setSelectedProducts(prev => {
+                            const next = new Set(prev.size === 0 ? keys.slice(0, 5) : prev);
+                            if (next.has(key)) { next.delete(key); } else { next.add(key); }
+                            return next;
+                          })}
+                          sx={{
+                            display: 'flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.4,
+                            borderRadius: 1.5, cursor: 'pointer', border: `1px solid ${isOn ? color : '#dee2e6'}`,
+                            backgroundColor: isOn ? `${color}12` : '#f8f9fa',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: isOn ? color : '#dee2e6', flexShrink: 0 }} />
+                          {channelLabel && (
+                            <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: isOn ? color : '#adb5bd' }}>
+                              {channelLabel}
+                            </Typography>
+                          )}
+                          <Typography sx={{ fontSize: '0.7rem', color: isOn ? '#1a1a1b' : '#adb5bd', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {productName}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  <Box sx={{ width: '100%', height: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f3f5" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#868e96' }} axisLine={{ stroke: '#f1f3f5' }} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: '#adb5bd' }} axisLine={false} tickLine={false} width={36}
+                          tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)} />
+                        <Tooltip
+                          formatter={(value, name) => [`${Number(value).toLocaleString()}건`, getProductName(String(name))]}
+                          contentStyle={{ fontSize: '0.75rem', borderRadius: 8, border: '1px solid #f1f3f5' }}
+                        />
+                        {keys.map((key, i) =>
+                          active.has(key) ? (
+                            <Line key={key} type="monotone" dataKey={key} stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                              strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                          ) : null
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                </>
               )}
             </Paper>
           );

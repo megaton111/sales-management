@@ -224,6 +224,50 @@ export default function useDashboard(
     }));
   }, [filteredSales]);
 
+  const productMonthlyData = useMemo(() => {
+    // 상품별 연간 총 판매량 집계 (상위 10개 선정)
+    const totalMap = new Map<string, number>();
+    for (const item of items) {
+      const vin = item.vendor_item_name;
+      const name = !vin || vin === item.product_name
+        ? item.product_name
+        : vin.startsWith(item.product_name) ? vin : `${item.product_name} ${vin}`;
+      const key = `${item.channel}|${name}`;
+      totalMap.set(key, (totalMap.get(key) ?? 0) + item.quantity);
+    }
+    const top10 = Array.from(totalMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([key]) => key);
+
+    // 월별 × 상품별 집계
+    const monthData: Record<string, Record<string, number>> = {};
+    for (let m = 1; m <= 12; m++) {
+      const label = `${m}월`;
+      monthData[label] = {};
+      for (const key of top10) monthData[label][key] = 0;
+    }
+    for (const item of items) {
+      const vin = item.vendor_item_name;
+      const name = !vin || vin === item.product_name
+        ? item.product_name
+        : vin.startsWith(item.product_name) ? vin : `${item.product_name} ${vin}`;
+      const key = `${item.channel}|${name}`;
+      if (!top10.includes(key)) continue;
+      const m = Number(item.sale_date.slice(5, 7));
+      monthData[`${m}월`][key] = (monthData[`${m}월`][key] ?? 0) + item.quantity;
+    }
+
+    const currentYear = new Date().getFullYear();
+    const maxMonth = year < currentYear ? 12 : new Date().getMonth() + 1;
+    const rows = Array.from({ length: maxMonth }, (_, i) => ({
+      month: `${i + 1}월`,
+      ...monthData[`${i + 1}월`],
+    }));
+
+    return { keys: top10, rows };
+  }, [items, year]);
+
   const expenseByType = useMemo(() => {
     const map = new Map<string, number>();
     for (const row of expenses) {
@@ -236,5 +280,5 @@ export default function useDashboard(
       .sort((a, b) => b.amount - a.amount);
   }, [expenses]);
 
-  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek, currentMonth, selectedMonth: month };
+  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek, productMonthlyData, currentMonth, selectedMonth: month };
 }
