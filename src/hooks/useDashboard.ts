@@ -38,6 +38,7 @@ export default function useDashboard(
 ) {
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
+  const [prevItems, setPrevItems] = useState<SaleItem[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -45,12 +46,19 @@ export default function useDashboard(
     if (!storeId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard?year=${year}&storeId=${storeId}`);
+      const [res, prevRes] = await Promise.all([
+        fetch(`/api/dashboard?year=${year}&storeId=${storeId}`),
+        fetch(`/api/dashboard?year=${year - 1}&storeId=${storeId}`),
+      ]);
       const json = await res.json();
       if (res.ok) {
         setSales(json.sales);
         setItems(json.items);
         setExpenses(json.expenses);
+      }
+      if (prevRes.ok) {
+        const prevJson = await prevRes.json();
+        setPrevItems(prevJson.items ?? []);
       }
     } finally {
       setLoading(false);
@@ -225,9 +233,29 @@ export default function useDashboard(
   }, [filteredSales]);
 
   const productMonthlyData = useMemo(() => {
-    // 상품별 연간 총 판매량 집계 (상위 10개 선정)
+    // 최근 12개월 범위 계산 (현재 연도 기준 → year 파라미터 기준)
+    const now = new Date();
+    const isCurrentYear = year === now.getFullYear();
+    const endMonth = isCurrentYear ? now.getMonth() + 1 : 12;
+
+    // 12개월 레이블 생성: endMonth 기준 역산
+    const months: { label: string; year: number; month: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      let m = endMonth - i;
+      let y = year;
+      if (m <= 0) { m += 12; y = year - 1; }
+      months.push({ label: `${String(y).slice(2)}.${m}`, year: y, month: m });
+    }
+
+    // 전년도 + 당해년도 items 합산
+    const allItems = [...prevItems, ...items];
+
+    // 상품별 12개월 총 판매량으로 상위 10개 선정
     const totalMap = new Map<string, number>();
-    for (const item of items) {
+    for (const item of allItems) {
+      const itemYear = Number(item.sale_date.slice(0, 4));
+      const itemMonth = Number(item.sale_date.slice(5, 7));
+      if (!months.some(m => m.year === itemYear && m.month === itemMonth)) continue;
       const vin = item.vendor_item_name;
       const name = !vin || vin === item.product_name
         ? item.product_name
@@ -241,32 +269,29 @@ export default function useDashboard(
       .map(([key]) => key);
 
     // 월별 × 상품별 집계
-    const monthData: Record<string, Record<string, number>> = {};
-    for (let m = 1; m <= 12; m++) {
-      const label = `${m}월`;
-      monthData[label] = {};
-      for (const key of top10) monthData[label][key] = 0;
+    const monthData = new Map<string, Record<string, number>>();
+    for (const { label } of months) {
+      const row: Record<string, number> = {};
+      for (const key of top10) row[key] = 0;
+      monthData.set(label, row);
     }
-    for (const item of items) {
+    for (const item of allItems) {
+      const itemYear = Number(item.sale_date.slice(0, 4));
+      const itemMonth = Number(item.sale_date.slice(5, 7));
+      const slot = months.find(m => m.year === itemYear && m.month === itemMonth);
+      if (!slot) continue;
       const vin = item.vendor_item_name;
       const name = !vin || vin === item.product_name
         ? item.product_name
         : vin.startsWith(item.product_name) ? vin : `${item.product_name} ${vin}`;
       const key = `${item.channel}|${name}`;
       if (!top10.includes(key)) continue;
-      const m = Number(item.sale_date.slice(5, 7));
-      monthData[`${m}월`][key] = (monthData[`${m}월`][key] ?? 0) + item.quantity;
+      monthData.get(slot.label)![key] += item.quantity;
     }
 
-    const currentYear = new Date().getFullYear();
-    const maxMonth = year < currentYear ? 12 : new Date().getMonth() + 1;
-    const rows = Array.from({ length: maxMonth }, (_, i) => ({
-      month: `${i + 1}월`,
-      ...monthData[`${i + 1}월`],
-    }));
-
+    const rows = months.map(({ label }) => ({ month: label, ...monthData.get(label)! }));
     return { keys: top10, rows };
-  }, [items, year]);
+  }, [items, prevItems, year]);
 
   const expenseByType = useMemo(() => {
     const map = new Map<string, number>();
