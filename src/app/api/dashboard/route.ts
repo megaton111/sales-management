@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
     const [sales, items, expenses] = await Promise.all([
-      fetchAll(supabase, 'daily_sales', 'sale_date, channel, total_sale_amount', {
+      fetchAll(supabase, 'daily_sales', 'sale_date, channel, total_sale_amount, order_count', {
         storeId, dateColumn: 'sale_date', startDate, endDate,
       }),
       fetchAll(supabase, 'daily_sales_items', 'sale_date, channel, product_name, vendor_item_name, quantity, unit_profit, sale_amount', {

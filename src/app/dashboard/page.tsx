@@ -62,7 +62,7 @@ export default function DashboardPage() {
   const yearOptions = Array.from({ length: currentYear - 2025 + 1 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
   const { costMap } = useProductProfits(currentStore?.id ?? null);
-  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType } = useDashboard(
+  const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek } = useDashboard(
     currentStore?.id ?? null, year, costMap, month
   );
   const { targets, saveTarget } = useSalesTargets(currentStore?.id ?? null, year);
@@ -523,6 +523,48 @@ export default function DashboardPage() {
             );
           })()}
         </Paper>
+
+        {/* 요일별 주문 패턴 */}
+        {(() => {
+          const maxCount = Math.max(...ordersByDayOfWeek.map(d => d.count), 1);
+          return (
+            <Paper sx={{ ...cardSx, mb: 1 }}>
+              <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>
+                요일별 주문 패턴
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rounded" width="100%" height={160} sx={{ borderRadius: 2 }} />
+              ) : (
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 160, px: 1 }}>
+                  {ordersByDayOfWeek.map(({ day, count, isWeekend }) => {
+                    const ratio = count / maxCount;
+                    const barH = Math.max(ratio * 120, count > 0 ? 4 : 0);
+                    return (
+                      <Box key={day} sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                        <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: isWeekend ? '#e03131' : '#495057' }}>
+                          {count > 0 ? count.toLocaleString() : ''}
+                        </Typography>
+                        <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-end', height: 120 }}>
+                          <Box sx={{
+                            width: '100%',
+                            height: barH,
+                            borderRadius: '4px 4px 0 0',
+                            backgroundColor: isWeekend ? '#ffe3e3' : '#e7f5ff',
+                            border: `1px solid ${isWeekend ? '#ffa8a8' : '#a5d8ff'}`,
+                            transition: 'height 0.3s ease',
+                          }} />
+                        </Box>
+                        <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: isWeekend ? '#e03131' : '#868e96' }}>
+                          {day}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+            </Paper>
+          );
+        })()}
 
         {/* 판매 순위 */}
         {(() => {

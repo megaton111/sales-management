@@ -5,6 +5,7 @@ interface SaleRow {
   sale_date: string;
   channel: string;
   total_sale_amount: number;
+  order_count: number;
 }
 
 interface SaleItem {
@@ -203,6 +204,26 @@ export default function useDashboard(
     return Array.from(map.values());
   }, [filteredItems, costMap]);
 
+  const DOW_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+  const ordersByDayOfWeek = useMemo(() => {
+    const counts = Array(7).fill(0) as number[];
+    const amounts = Array(7).fill(0) as number[];
+    for (const row of filteredSales) {
+      if (row.channel === 'mp_refund' || row.channel === 'rg_refund' || row.channel === 'ss_refund') continue;
+      const dow = new Date(row.sale_date).getDay();
+      counts[dow] += Number(row.order_count);
+      amounts[dow] += Number(row.total_sale_amount);
+    }
+    // 월(1)부터 시작해서 일(0) 순으로 재배열
+    return [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
+      day: DOW_LABELS[dow],
+      count: counts[dow],
+      amount: amounts[dow],
+      isWeekend: dow === 0 || dow === 6,
+    }));
+  }, [filteredSales]);
+
   const expenseByType = useMemo(() => {
     const map = new Map<string, number>();
     for (const row of expenses) {
@@ -215,5 +236,5 @@ export default function useDashboard(
       .sort((a, b) => b.amount - a.amount);
   }, [expenses]);
 
-  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, currentMonth, selectedMonth: month };
+  return { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType, ordersByDayOfWeek, currentMonth, selectedMonth: month };
 }
