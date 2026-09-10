@@ -22,10 +22,17 @@ import Button from '@mui/material/Button';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Skeleton from '@mui/material/Skeleton';
+import LinearProgress from '@mui/material/LinearProgress';
+import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ReferenceLine, PieChart, Pie, Cell } from 'recharts';
 import { useStore } from '@/contexts/StoreContext';
 import useProductProfits from '@/hooks/useProductProfits';
 import useDashboard from '@/hooks/useDashboard';
+import useSalesTargets from '@/hooks/useSalesTargets';
 
 function formatNumber(n: number) {
   return n.toLocaleString('ko-KR');
@@ -58,9 +65,35 @@ export default function DashboardPage() {
   const { loading, totalSales, totalExpenses, totalProfit, chartData, salesRanking, expenseByType } = useDashboard(
     currentStore?.id ?? null, year, costMap, month
   );
+  const { targets, saveTarget } = useSalesTargets(currentStore?.id ?? null, year);
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [noticeQueue, setNoticeQueue] = useState<string[]>([]);
   const [currentNotice, setCurrentNotice] = useState<string | null>(null);
+
+  const currentTarget = month
+    ? (targets.get(month) ?? 0)
+    : Array.from({ length: 12 }, (_, i) => i + 1).reduce((sum, m) => sum + (targets.get(m) ?? 0), 0);
+  const achieveRate = currentTarget > 0 ? Math.min((totalSales.total / currentTarget) * 100, 100) : 0;
+  const achieveRateRaw = currentTarget > 0 ? (totalSales.total / currentTarget) * 100 : 0;
+
+  const handleTargetEdit = () => {
+    setTargetInput(currentTarget > 0 ? String(currentTarget) : '');
+    setEditingTarget(true);
+  };
+  const handleTargetSave = async () => {
+    const amount = Number(targetInput.replace(/,/g, ''));
+    if (isNaN(amount) || amount < 0) return;
+    const months = month ? [month] : Array.from({ length: 12 }, (_, i) => i + 1);
+    if (month) {
+      await saveTarget(month, amount);
+    } else {
+      const perMonth = Math.round(amount / 12);
+      await Promise.all(months.map(m => saveTarget(m, perMonth)));
+    }
+    setEditingTarget(false);
+  };
 
   useEffect(() => {
     const completed: string[] = JSON.parse(localStorage.getItem('ad_notice_completed') || '[]');
@@ -230,6 +263,80 @@ export default function DashboardPage() {
               </Box>
             ))}
           </Box>
+
+          {/* 목표 달성률 게이지 */}
+          {!loading && (
+            <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid #f1f3f5' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', fontWeight: 600 }}>
+                  {periodLabel} 목표 달성률
+                </Typography>
+                {editingTarget ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <TextField
+                      size="small"
+                      autoFocus
+                      value={targetInput}
+                      onChange={(e) => setTargetInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleTargetSave(); if (e.key === 'Escape') setEditingTarget(false); }}
+                      placeholder="목표 금액"
+                      inputProps={{ style: { fontSize: '0.8rem', padding: '4px 8px', width: 130 } }}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                    />
+                    <IconButton size="small" onClick={handleTargetSave} sx={{ color: '#2b8a3e' }}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
+                    <IconButton size="small" onClick={() => setEditingTarget(false)} sx={{ color: '#adb5bd' }}><CloseIcon sx={{ fontSize: 16 }} /></IconButton>
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {currentTarget > 0 ? (
+                      <>
+                        <Typography sx={{ fontSize: '0.78rem', color: '#495057' }}>
+                          목표 <strong>{formatNumber(currentTarget)}</strong>원
+                        </Typography>
+                        <IconButton size="small" onClick={handleTargetEdit} sx={{ color: '#adb5bd', p: 0.3 }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
+                      </>
+                    ) : (
+                      <Button
+                        size="small"
+                        onClick={handleTargetEdit}
+                        sx={{ fontSize: '0.75rem', color: '#868e96', textTransform: 'none', p: '2px 8px', border: '1px dashed #dee2e6', borderRadius: 1.5, minWidth: 0 }}
+                      >
+                        + 목표 설정
+                      </Button>
+                    )}
+                  </Box>
+                )}
+              </Box>
+              {currentTarget > 0 && (
+                <>
+                  <LinearProgress
+                    variant="determinate"
+                    value={achieveRate}
+                    sx={{
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: '#f1f3f5',
+                      '& .MuiLinearProgress-bar': {
+                        borderRadius: 4,
+                        backgroundColor: achieveRateRaw >= 100 ? '#2b8a3e' : achieveRateRaw >= 80 ? '#e67700' : '#1971c2',
+                      },
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
+                    <Typography sx={{ fontSize: '0.75rem', color: '#868e96' }}>
+                      {formatNumber(totalSales.total)}원 달성
+                    </Typography>
+                    <Typography sx={{
+                      fontSize: '0.78rem', fontWeight: 700,
+                      color: achieveRateRaw >= 100 ? '#2b8a3e' : achieveRateRaw >= 80 ? '#e67700' : '#1971c2',
+                    }}>
+                      {achieveRateRaw.toFixed(1)}%
+                    </Typography>
+                  </Box>
+                </>
+              )}
+            </Box>
+          )}
         </Paper>
 
         {/* 지출 + 순이익 + 마진율 */}

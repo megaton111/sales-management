@@ -131,3 +131,15 @@ create table if not exists daily_sales_items (
   created_at timestamptz default now(),
   unique (store_id, sale_date, channel, vendor_item_id, sale_type)
 );
+
+-- 월별 매출 목표
+create table if not exists sales_targets (
+  id serial primary key,
+  store_id integer not null references stores(id),
+  year integer not null,
+  month integer not null check (month between 1 and 12),
+  target_amount bigint not null default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (store_id, year, month)
+);
