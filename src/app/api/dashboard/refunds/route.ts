@@ -39,18 +39,19 @@ export async function GET(request: NextRequest) {
 
     if (nameErr) throw nameErr;
 
-    // vendor_item_id + channel → 상품명 매핑 (첫 번째 매칭 사용)
+    // vendor_item_id + channel → 상품명 매핑, channel 무시 폴백도 함께 저장
     const nameMap = new Map<string, { product_name: string; vendor_item_name: string }>();
     for (const item of itemNames ?? []) {
-      const key = `${item.vendor_item_id}|${item.channel}`;
-      if (!nameMap.has(key)) nameMap.set(key, { product_name: item.product_name, vendor_item_name: item.vendor_item_name });
+      const channelKey = `${item.vendor_item_id}|${item.channel}`;
+      if (!nameMap.has(channelKey)) nameMap.set(channelKey, { product_name: item.product_name, vendor_item_name: item.vendor_item_name });
+      const idKey = String(item.vendor_item_id);
+      if (!nameMap.has(idKey)) nameMap.set(idKey, { product_name: item.product_name, vendor_item_name: item.vendor_item_name });
     }
 
     // 3. 상품별 반품 건수 집계
     const countMap = new Map<string, { name: string; channel: string; count: number }>();
     for (const r of refunds) {
-      const nameKey = `${r.vendor_item_id}|${r.channel}`;
-      const names = nameMap.get(nameKey);
+      const names = nameMap.get(`${r.vendor_item_id}|${r.channel}`) ?? nameMap.get(String(r.vendor_item_id));
       if (!names) continue;
 
       const vin = names.vendor_item_name;
