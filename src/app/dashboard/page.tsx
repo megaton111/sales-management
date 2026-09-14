@@ -266,79 +266,79 @@ export default function DashboardPage() {
               </Box>
             ))}
           </Box>
+        </Paper>
 
-          {/* 목표 달성률 게이지 */}
-          {!loading && (
-            <Box sx={{ mt: 2.5, pt: 2, borderTop: '1px solid #f1f3f5' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', fontWeight: 600 }}>
-                  {periodLabel} 목표 달성률
-                </Typography>
-                {editingTarget ? (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <TextField
-                      size="small"
-                      autoFocus
-                      value={targetInput}
-                      onChange={(e) => setTargetInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleTargetSave(); if (e.key === 'Escape') setEditingTarget(false); }}
-                      placeholder="목표 금액"
-                      inputProps={{ style: { fontSize: '0.8rem', padding: '4px 8px', width: 130 } }}
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
-                    />
-                    <IconButton size="small" onClick={handleTargetSave} sx={{ color: '#2b8a3e' }}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
-                    <IconButton size="small" onClick={() => setEditingTarget(false)} sx={{ color: '#adb5bd' }}><CloseIcon sx={{ fontSize: 16 }} /></IconButton>
-                  </Box>
+        {/* 목표 달성률 게이지 */}
+        <Paper sx={{ ...cardSx, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: currentTarget > 0 ? 1.5 : 0 }}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96' }}>
+              {periodLabel} 목표 달성률
+            </Typography>
+            {!loading && (editingTarget ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <TextField
+                  size="small"
+                  autoFocus
+                  value={targetInput}
+                  onChange={(e) => setTargetInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleTargetSave(); if (e.key === 'Escape') setEditingTarget(false); }}
+                  placeholder="목표 금액"
+                  inputProps={{ style: { fontSize: '0.8rem', padding: '4px 8px', width: 130 } }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                />
+                <IconButton size="small" onClick={handleTargetSave} sx={{ color: '#2b8a3e' }}><CheckIcon sx={{ fontSize: 16 }} /></IconButton>
+                <IconButton size="small" onClick={() => setEditingTarget(false)} sx={{ color: '#adb5bd' }}><CloseIcon sx={{ fontSize: 16 }} /></IconButton>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                {currentTarget > 0 ? (
+                  <>
+                    <Typography sx={{ fontSize: '0.78rem', color: '#495057' }}>
+                      목표 <strong>{formatNumber(currentTarget)}</strong>원
+                    </Typography>
+                    <IconButton size="small" onClick={handleTargetEdit} sx={{ color: '#adb5bd', p: 0.3 }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
+                  </>
                 ) : (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {currentTarget > 0 ? (
-                      <>
-                        <Typography sx={{ fontSize: '0.78rem', color: '#495057' }}>
-                          목표 <strong>{formatNumber(currentTarget)}</strong>원
-                        </Typography>
-                        <IconButton size="small" onClick={handleTargetEdit} sx={{ color: '#adb5bd', p: 0.3 }}><EditIcon sx={{ fontSize: 14 }} /></IconButton>
-                      </>
-                    ) : (
-                      <Button
-                        size="small"
-                        onClick={handleTargetEdit}
-                        sx={{ fontSize: '0.75rem', color: '#868e96', textTransform: 'none', p: '2px 8px', border: '1px dashed #dee2e6', borderRadius: 1.5, minWidth: 0 }}
-                      >
-                        + 목표 설정
-                      </Button>
-                    )}
-                  </Box>
+                  <Button
+                    size="small"
+                    onClick={handleTargetEdit}
+                    sx={{ fontSize: '0.75rem', color: '#868e96', textTransform: 'none', p: '2px 8px', border: '1px dashed #dee2e6', borderRadius: 1.5, minWidth: 0 }}
+                  >
+                    + 목표 설정
+                  </Button>
                 )}
               </Box>
-              {currentTarget > 0 && (
-                <>
-                  <LinearProgress
-                    variant="determinate"
-                    value={achieveRate}
-                    sx={{
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: '#f1f3f5',
-                      '& .MuiLinearProgress-bar': {
-                        borderRadius: 4,
-                        backgroundColor: achieveRateRaw >= 100 ? '#2b8a3e' : achieveRateRaw >= 80 ? '#e67700' : '#1971c2',
-                      },
-                    }}
-                  />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
-                    <Typography sx={{ fontSize: '0.75rem', color: '#868e96' }}>
-                      {formatNumber(totalSales.total)}원 달성
-                    </Typography>
-                    <Typography sx={{
-                      fontSize: '0.78rem', fontWeight: 700,
-                      color: achieveRateRaw >= 100 ? '#2b8a3e' : achieveRateRaw >= 80 ? '#e67700' : '#1971c2',
-                    }}>
-                      {achieveRateRaw.toFixed(1)}%
-                    </Typography>
-                  </Box>
-                </>
-              )}
-            </Box>
+            ))}
+          </Box>
+          {loading ? (
+            <Skeleton variant="rounded" width="100%" height={8} sx={{ borderRadius: 4 }} />
+          ) : currentTarget > 0 && (
+            <>
+              <LinearProgress
+                variant="determinate"
+                value={achieveRate}
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: '#f1f3f5',
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 4,
+                    backgroundColor: achieveRateRaw >= 100 ? '#2b8a3e' : achieveRateRaw >= 80 ? '#e67700' : '#1971c2',
+                  },
+                }}
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.8 }}>
+                <Typography sx={{ fontSize: '0.75rem', color: '#868e96' }}>
+                  {formatNumber(totalSales.total)}원 달성
+                </Typography>
+                <Typography sx={{
+                  fontSize: '0.78rem', fontWeight: 700,
+                  color: achieveRateRaw >= 100 ? '#2b8a3e' : achieveRateRaw >= 80 ? '#e67700' : '#1971c2',
+                }}>
+                  {achieveRateRaw.toFixed(1)}%
+                </Typography>
+              </Box>
+            </>
           )}
         </Paper>
 

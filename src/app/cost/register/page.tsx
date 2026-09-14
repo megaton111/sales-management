@@ -582,8 +582,10 @@ function CostRegisterForm() {
     <Container maxWidth="md">
       <Box sx={{ py: 4 }}>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
-          <Typography variant="h5">{isEdit ? "매입 수정" : "상품 등록"}</Typography>
-          <Button variant="outlined" size="small" onClick={() => router.push("/cost")}>
+          <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#1a1a1b', letterSpacing: '-0.02em' }}>
+            {isEdit ? "매입 수정" : "상품 등록"}
+          </Typography>
+          <Button variant="outlined" size="small" onClick={() => router.push("/cost")} sx={{ borderColor: '#dee2e6', color: '#495057', '&:hover': { borderColor: '#adb5bd', backgroundColor: '#f8f9fa' } }}>
             목록으로
           </Button>
         </Box>
@@ -860,7 +862,7 @@ function CostRegisterForm() {
 
           <Grid size={12}>
             <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-              <Button variant="contained" onClick={handleSave} disabled={saving}>
+              <Button variant="contained" onClick={handleSave} disabled={saving} sx={{ backgroundColor: '#1a1a1b', '&:hover': { backgroundColor: '#343a40' }, '&:disabled': { backgroundColor: '#adb5bd' } }}>
                 {saving ? "저장 중..." : isEdit ? "수정 완료" : "저장"}
               </Button>
             </Box>
