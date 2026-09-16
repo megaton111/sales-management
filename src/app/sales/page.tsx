@@ -1097,7 +1097,7 @@ export default function SalesPage() {
         </Box>
 
         {/* 달력 UI */}
-        <Paper elevation={0} sx={{ p: 2, backgroundColor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <Paper elevation={0} sx={{ p: { xs: 1, sm: 2 }, backgroundColor: '#fff', borderRadius: 3, border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
         {/* 요일 헤더 */}
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 0.5 }}>
           {weekLabels.map((label, i) => (
@@ -1134,8 +1134,8 @@ export default function SalesPage() {
                 elevation={0}
                 onClick={() => !isFuture && handleChannelClick(day, 'all')}
                 sx={{
-                  p: { xs: 0.75, sm: 1 },
-                  minHeight: { xs: 60, sm: 96 },
+                  p: { xs: 0.4, sm: 1 },
+                  minHeight: { xs: 44, sm: 96 },
                   cursor: isFuture ? 'default' : 'pointer',
                   borderRadius: 2,
                   border: isSelectedDay ? '1.5px solid #343a40' : isToday ? '1px solid #228be6' : '1px solid rgba(0,0,0,0.06)',
@@ -1164,33 +1164,47 @@ export default function SalesPage() {
                   </Box>
                 ) : (
                   <>
-                    {[
-                      { label: '스스', bg: '#03c75a', value: ssAmount, color: '#495057', bold: false, mobileHide: true },
-                      { label: '쿠팡판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false, mobileHide: true },
-                      { label: '쿠팡로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false, mobileHide: true },
-                      { label: '총매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true, mobileHide: false },
-                      { label: '총순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true, mobileHide: false },
-                    ].map(({ label, bg, value, color, bold, mobileHide }) => (
-                      <Box key={label} sx={{ display: mobileHide ? { xs: 'none', sm: 'flex' } : 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: bg, borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
-                        <Typography sx={{ fontSize: '0.63rem', fontWeight: bold ? 600 : 400, color, lineHeight: 1.4 }}>{formatNumber(value)}</Typography>
-                      </Box>
-                    ))}
-                    {hasRefund && (
-                      <>
-                        <Box sx={{ borderTop: '1px solid #f1f3f5', mt: 0.3, mb: 0.1, display: { xs: 'none', sm: 'block' } }} />
-                        {[
-                          { label: '스스반품', value: ssRefundCount, hide: ssRefundCount === 0 },
-                          { label: '쿠팡판매반품', value: mpRefundCount, hide: mpRefundCount === 0 },
-                          { label: '쿠팡로켓반품', value: rgRefundCount, hide: rgRefundCount === 0 },
-                        ].filter(item => !item.hide).map(({ label, value }) => (
-                          <Box key={label} sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: '#e03131', borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
-                            <Typography sx={{ fontSize: '0.63rem', color: '#e03131', lineHeight: 1.4 }}>{value}건</Typography>
-                          </Box>
-                        ))}
-                      </>
-                    )}
+                    {/* xs: 날짜+순익만 표시 (배지 없이) */}
+                    <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexDirection: 'column', gap: 0.2 }}>
+                      {totalAmount > 0 && (
+                        <Typography sx={{ fontSize: '0.58rem', fontWeight: 600, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {formatNumber(totalDayProfit)}
+                        </Typography>
+                      )}
+                      {hasRefund && (
+                        <Box sx={{ width: 4, height: 4, borderRadius: '50%', backgroundColor: '#e03131', mt: 0.2 }} />
+                      )}
+                    </Box>
+                    {/* sm+: 기존 5개 라벨 표시 */}
+                    <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexDirection: 'column', gap: 0.3 }}>
+                      {[
+                        { label: '스스', bg: '#03c75a', value: ssAmount, color: '#495057', bold: false },
+                        { label: '쿠팡판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false },
+                        { label: '쿠팡로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false },
+                        { label: '총매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true },
+                        { label: '총순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true },
+                      ].map(({ label, bg, value, color, bold }) => (
+                        <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: bg, borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
+                          <Typography sx={{ fontSize: '0.63rem', fontWeight: bold ? 600 : 400, color, lineHeight: 1.4 }}>{formatNumber(value)}</Typography>
+                        </Box>
+                      ))}
+                      {hasRefund && (
+                        <>
+                          <Box sx={{ borderTop: '1px solid #f1f3f5', mt: 0.3, mb: 0.1 }} />
+                          {[
+                            { label: '스스반품', value: ssRefundCount, hide: ssRefundCount === 0 },
+                            { label: '쿠팡판매반품', value: mpRefundCount, hide: mpRefundCount === 0 },
+                            { label: '쿠팡로켓반품', value: rgRefundCount, hide: rgRefundCount === 0 },
+                          ].filter(item => !item.hide).map(({ label, value }) => (
+                            <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: '#e03131', borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
+                              <Typography sx={{ fontSize: '0.63rem', color: '#e03131', lineHeight: 1.4 }}>{value}건</Typography>
+                            </Box>
+                          ))}
+                        </>
+                      )}
+                    </Box>
                   </>
                 )}
               </Paper>
