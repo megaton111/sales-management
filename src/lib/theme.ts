@@ -18,6 +18,14 @@ const theme = createTheme({
     fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif",
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: {
+          // 375px → 14px, 768px → 15px, 1200px+ → 16px
+          fontSize: 'clamp(14px, 0.24vw + 13.1px, 16px)',
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: {
