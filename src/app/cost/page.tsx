@@ -158,6 +158,15 @@ export default function CostPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTab, setSelectedTab] = useState(0);
 
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const [copyDialog, setCopyDialog] = useState(false);
   const [copyTargetStoreId, setCopyTargetStoreId] = useState<number | "">("");
   const [copySelected, setCopySelected] = useState<string[]>([]);
@@ -264,6 +273,7 @@ export default function CostPage() {
       }
 
       setSelectedTab(0);
+      setExpandedCards(new Set());
       setLoading(false);
     };
     fetchData();
@@ -398,82 +408,191 @@ export default function CostPage() {
         )}
       </Box>
 
-      <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
-        <TableContainer>
-          <Table size="small" sx={{ minWidth: 2000 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#adb5bd", borderBottom: "1px solid #f1f3f5", whiteSpace: "nowrap" }} />
-                {columns.map((col) => (
-                  <TableCell
-                    key={col.key}
-                    align={col.numeric ? "right" : "left"}
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                      whiteSpace: "nowrap",
-                      color: "#adb5bd",
-                      borderBottom: "1px solid #f1f3f5",
-                      backgroundColor: col.highlight ? "#f8f9fa" : "#fff",
-                    }}
-                  >
-                    {col.label}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredProducts.map((product) => (
-                <TableRow key={product.id} sx={{ "&:hover": { backgroundColor: "#f8f9fa" } }}>
-                  <TableCell sx={{ borderBottom: "1px solid #f1f3f5", whiteSpace: "nowrap" }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => router.push(`/cost/register?id=${product.id}`)}
-                      sx={{ fontSize: "0.75rem", borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}
-                    >
-                      수정
-                    </Button>
-                  </TableCell>
-                  {columns.map((col) => {
-                    const raw = product[col.key as keyof Product];
-                    let display: string;
-                    if (col.format) {
-                      display = col.format(raw as string);
-                    } else if (col.numeric) {
-                      display = fmt(raw as number) + (col.suffix || "");
-                    } else {
-                      display = (raw as string) || "-";
-                    }
-                    return (
-                      <TableCell
-                        key={col.key}
-                        align={col.numeric ? "right" : "left"}
-                        sx={{
-                          fontSize: "0.85rem",
-                          whiteSpace: "nowrap",
-                          color: "#1a1a1b",
-                          fontWeight: col.highlight ? 700 : 400,
-                          borderBottom: "1px solid #f1f3f5",
-                          backgroundColor: col.highlight ? "#f8f9fa" : "transparent",
-                        }}
-                      >
-                        {display}
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+      {/* 모바일/태블릿 카드 뷰 (< lg) */}
+      <Box sx={{ display: { xs: "block", lg: "none" } }}>
+        {filteredProducts.map((product) => {
+          const isExpanded = expandedCards.has(product.id);
+          const countryLabel = product.country === "US" ? "미국" : "중국";
+          const dateLabel = product.first_payment_date || product.created_at?.slice(0, 10) || "-";
+          const detailFields = [
+            { label: "환율", value: fmt(product.exchange_rate) },
+            { label: "상품가(현지)", value: fmt(product.unit_price_foreign) },
+            { label: "상품가(원화)", value: `${fmt(product.unit_price_krw)}원` },
+            { label: "총 상품가격", value: `${fmt(product.total_product_price)}원` },
+            { label: "구매수수료(현지)", value: fmt(product.purchase_fee_foreign) },
+            { label: "구매수수료(원화)", value: `${fmt(product.purchase_fee)}원` },
+            { label: "현지배송비(현지)", value: fmt(product.local_shipping_foreign) },
+            { label: "현지배송비(원화)", value: `${fmt(product.local_shipping)}원` },
+            { label: "검품 수수료", value: `${fmt(product.inspection_fee)}원` },
+            { label: "통관료", value: `${fmt(product.customs_clearance_fee)}원` },
+            { label: "국제운반비", value: `${fmt(product.international_shipping)}원` },
+            { label: "원산지발급", value: `${fmt(product.origin_certificate_fee)}원` },
+            { label: "관세", value: `${fmt(product.customs_duty)}원` },
+            { label: "부가세", value: `${fmt(product.vat)}원` },
+            { label: "관세사수수료", value: `${fmt(product.customs_broker_fee)}원` },
+            { label: "국내운송료", value: `${fmt(product.domestic_shipping)}원` },
+          ];
 
-      {filteredProducts.filter((p) => p.has_options).map((product) => (
-        <Paper key={`${product.id}-opts`} elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 2, overflow: "hidden", mt: 1.5 }}>
-          <OptionsRow productId={product.id} optionsMap={optionsMap} />
+          return (
+            <Paper key={product.id} elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.06)", borderRadius: 2, overflow: "hidden", mb: 1.5 }}>
+              {/* 카드 헤더 */}
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: 2, py: 1.5, borderBottom: "1px solid #f1f3f5" }}>
+                <Box>
+                  <Typography sx={{ fontSize: "0.88rem", fontWeight: 600, color: "#1a1a1b" }}>
+                    {countryLabel} · {fmt(product.quantity)}개
+                  </Typography>
+                  <Typography sx={{ fontSize: "0.73rem", color: "#adb5bd", mt: 0.2 }}>{dateLabel}</Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => router.push(`/cost/register?id=${product.id}`)}
+                  sx={{ fontSize: "0.75rem", borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}
+                >
+                  수정
+                </Button>
+              </Box>
+
+              {/* 결제 요약 */}
+              <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, mb: 1.5 }}>
+                  {[
+                    { label: "1차 결제", amount: product.first_payment, date: product.first_payment_date },
+                    { label: "2차 결제", amount: product.second_payment, date: product.second_payment_date },
+                    { label: "3차 결제", amount: product.third_payment, date: product.third_payment_date },
+                  ].map(({ label, amount, date }) => (
+                    <Box key={label}>
+                      <Typography sx={{ fontSize: "0.68rem", color: "#adb5bd", mb: 0.3 }}>{label}</Typography>
+                      <Typography sx={{ fontSize: "0.85rem", fontWeight: 600, color: "#1a1a1b" }}>{fmt(amount)}원</Typography>
+                      {date && <Typography sx={{ fontSize: "0.65rem", color: "#ced4da" }}>{date}</Typography>}
+                    </Box>
+                  ))}
+                </Box>
+
+                {/* 총비용 / 사입비용 강조 */}
+                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, p: 1.5, backgroundColor: "#f8f9fa", borderRadius: 1.5, mb: 1 }}>
+                  <Box>
+                    <Typography sx={{ fontSize: "0.68rem", color: "#adb5bd", mb: 0.3 }}>총 비용</Typography>
+                    <Typography sx={{ fontSize: "1rem", fontWeight: 700, color: "#1a1a1b" }}>{fmt(product.total_cost)}원</Typography>
+                  </Box>
+                  <Box>
+                    <Typography sx={{ fontSize: "0.68rem", color: "#adb5bd", mb: 0.3 }}>1개 사입비용</Typography>
+                    <Typography sx={{ fontSize: "1rem", fontWeight: 700, color: "#1971c2" }}>{fmt(product.unit_cost)}원</Typography>
+                  </Box>
+                </Box>
+
+                {/* 상세 토글 */}
+                <Button
+                  size="small"
+                  onClick={() => toggleExpand(product.id)}
+                  sx={{ fontSize: "0.73rem", color: "#868e96", px: 0, "&:hover": { backgroundColor: "transparent", color: "#495057" } }}
+                >
+                  {isExpanded ? "▲ 상세 닫기" : "▼ 상세 비용 보기"}
+                </Button>
+
+                {/* 상세 필드 */}
+                {isExpanded && (
+                  <Box sx={{ mt: 1, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 0.5, borderTop: "1px solid #f1f3f5", pt: 1.5 }}>
+                    {detailFields.map(({ label, value }) => (
+                      <Box key={label} sx={{ py: 0.6 }}>
+                        <Typography sx={{ fontSize: "0.68rem", color: "#adb5bd" }}>{label}</Typography>
+                        <Typography sx={{ fontSize: "0.82rem", color: "#495057", fontWeight: 500 }}>{value}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+
+              {/* 옵션 */}
+              {product.has_options && (
+                <Box sx={{ borderTop: "1px solid #f1f3f5", overflowX: "auto" }}>
+                  <OptionsRow productId={product.id} optionsMap={optionsMap} />
+                </Box>
+              )}
+            </Paper>
+          );
+        })}
+      </Box>
+
+      {/* 데스크탑 테이블 뷰 (lg+) */}
+      <Box sx={{ display: { xs: "none", lg: "block" } }}>
+        <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
+          <TableContainer>
+            <Table size="small" sx={{ minWidth: 2000 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", color: "#adb5bd", borderBottom: "1px solid #f1f3f5", whiteSpace: "nowrap" }} />
+                  {columns.map((col) => (
+                    <TableCell
+                      key={col.key}
+                      align={col.numeric ? "right" : "left"}
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: "0.75rem",
+                        whiteSpace: "nowrap",
+                        color: "#adb5bd",
+                        borderBottom: "1px solid #f1f3f5",
+                        backgroundColor: col.highlight ? "#f8f9fa" : "#fff",
+                      }}
+                    >
+                      {col.label}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredProducts.map((product) => (
+                  <TableRow key={product.id} sx={{ "&:hover": { backgroundColor: "#f8f9fa" } }}>
+                    <TableCell sx={{ borderBottom: "1px solid #f1f3f5", whiteSpace: "nowrap" }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => router.push(`/cost/register?id=${product.id}`)}
+                        sx={{ fontSize: "0.75rem", borderColor: "#dee2e6", color: "#495057", "&:hover": { borderColor: "#adb5bd", backgroundColor: "#f8f9fa" } }}
+                      >
+                        수정
+                      </Button>
+                    </TableCell>
+                    {columns.map((col) => {
+                      const raw = product[col.key as keyof Product];
+                      let display: string;
+                      if (col.format) {
+                        display = col.format(raw as string);
+                      } else if (col.numeric) {
+                        display = fmt(raw as number) + (col.suffix || "");
+                      } else {
+                        display = (raw as string) || "-";
+                      }
+                      return (
+                        <TableCell
+                          key={col.key}
+                          align={col.numeric ? "right" : "left"}
+                          sx={{
+                            fontSize: "0.85rem",
+                            whiteSpace: "nowrap",
+                            color: "#1a1a1b",
+                            fontWeight: col.highlight ? 700 : 400,
+                            borderBottom: "1px solid #f1f3f5",
+                            backgroundColor: col.highlight ? "#f8f9fa" : "transparent",
+                          }}
+                        >
+                          {display}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Paper>
-      ))}
+
+        {filteredProducts.filter((p) => p.has_options).map((product) => (
+          <Paper key={`${product.id}-opts`} elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 2, overflow: "hidden", mt: 1.5 }}>
+            <OptionsRow productId={product.id} optionsMap={optionsMap} />
+          </Paper>
+        ))}
+      </Box>
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1.5 }}>
         <Button
