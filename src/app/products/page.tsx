@@ -67,22 +67,23 @@ type Column = {
   highlight?: boolean;
   suffix?: string;
   editable?: boolean;
+  mobileHide?: boolean;
 };
 
 const columns: Column[] = [
   { label: "상품명", key: "name" },
-  { label: "상품ID", key: "productId" },
+  { label: "상품ID", key: "productId", mobileHide: true },
   { label: "실제 판매가", key: "selling_price", numeric: true, editable: true, suffix: "원" },
-  { label: "공급가", key: "supply_price", numeric: true, suffix: "원" },
+  { label: "공급가", key: "supply_price", numeric: true, suffix: "원", mobileHide: true },
   { label: "이익금", key: "profit", numeric: true, highlight: true, suffix: "원" },
   { label: "마진율", key: "margin_rate", numeric: true, highlight: true, suffix: "%" },
-  { label: "마켓수수료", key: "market_commission", numeric: true, editable: true, suffix: "원" },
-  { label: "원가", key: "unit_cost", numeric: true, suffix: "원" },
-  { label: "입출고요금", key: "warehouse_fee", numeric: true, editable: true, suffix: "원" },
-  { label: "배송비", key: "shipping_fee", numeric: true, editable: true, suffix: "원" },
-  { label: "바코드 작업비", key: "barcode_fee", numeric: true, editable: true, suffix: "원" },
-  { label: "박스비", key: "box_fee", numeric: true, editable: true, suffix: "원" },
-  { label: "기타비용", key: "other_fee", numeric: true, editable: true, suffix: "원" },
+  { label: "마켓수수료", key: "market_commission", numeric: true, editable: true, suffix: "원", mobileHide: true },
+  { label: "원가", key: "unit_cost", numeric: true, suffix: "원", mobileHide: true },
+  { label: "입출고요금", key: "warehouse_fee", numeric: true, editable: true, suffix: "원", mobileHide: true },
+  { label: "배송비", key: "shipping_fee", numeric: true, editable: true, suffix: "원", mobileHide: true },
+  { label: "바코드 작업비", key: "barcode_fee", numeric: true, editable: true, suffix: "원", mobileHide: true },
+  { label: "박스비", key: "box_fee", numeric: true, editable: true, suffix: "원", mobileHide: true },
+  { label: "기타비용", key: "other_fee", numeric: true, editable: true, suffix: "원", mobileHide: true },
 ];
 
 function fmt(v: number) {
@@ -896,14 +897,14 @@ export default function ProductsPage() {
 
   if (storeLoading || loading) {
     return (
-      <Box sx={{ px: 3, py: 3 }}>
+      <Box sx={{ px: { xs: 1.5, sm: 3 }, py: { xs: 2, sm: 3 } }}>
         <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
                   {Array.from({ length: 15 }).map((_, i) => (
-                    <TableCell key={i} sx={{ borderBottom: "1px solid #f1f3f5", py: 1.2 }}>
+                    <TableCell key={i} sx={{ borderBottom: "1px solid #f1f3f5", py: { xs: 0.8, sm: 1.2 } }}>
                       <Skeleton variant="rounded" width={60} height={14} sx={{ borderRadius: 1 }} />
                     </TableCell>
                   ))}
@@ -941,13 +942,13 @@ export default function ProductsPage() {
   }
 
   return (
-    <Box sx={{ px: 3, py: 3 }}>
+    <Box sx={{ px: { xs: 1.5, sm: 3 }, py: { xs: 2, sm: 3 } }}>
       <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.04)", borderRadius: 3, overflow: "hidden" }}>
         <TableContainer sx={{ maxHeight: "calc(100vh - 48px - 48px)", overflow: "auto" }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#495057", borderBottom: "1px solid #f1f3f5", width: 70, backgroundColor: "#fff" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#495057", borderBottom: "1px solid #f1f3f5", width: 70, backgroundColor: "#fff", py: { xs: 0.8, sm: 1.2 } }}>
                   관리
                 </TableCell>
                 {columns.map((col) => (
@@ -961,12 +962,14 @@ export default function ProductsPage() {
                       color: "#495057",
                       borderBottom: "1px solid #f1f3f5",
                       backgroundColor: col.highlight ? "#f8f9fa" : "#fff",
+                      py: { xs: 0.8, sm: 1.2 },
+                      ...(col.mobileHide ? { display: { xs: "none", md: "table-cell" } } : {}),
                     }}
                   >
                     {col.label}
                   </TableCell>
                 ))}
-                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#495057", borderBottom: "1px solid #f1f3f5", backgroundColor: "#fff" }}>
+                <TableCell sx={{ fontWeight: 600, fontSize: "0.75rem", whiteSpace: "nowrap", color: "#495057", borderBottom: "1px solid #f1f3f5", backgroundColor: "#fff", py: { xs: 0.8, sm: 1.2 }, display: { xs: "none", md: "table-cell" } }}>
                   메모
                 </TableCell>
               </TableRow>
@@ -990,7 +993,7 @@ export default function ProductsPage() {
                 return (
                   <TableRow key={`${item.name}-${idx}`} sx={{ "&:hover": { backgroundColor: isUnmatched ? "#ffe3e3" : "#f8f9fa" }, backgroundColor: isUnmatched ? "#fff5f5" : bgColor }}>
                     {/* 관리 버튼 */}
-                    <TableCell sx={{ textAlign: "center", borderBottom: "1px solid #f1f3f5" }}>
+                    <TableCell sx={{ textAlign: "center", borderBottom: "1px solid #f1f3f5", py: { xs: 1, sm: 1.5 } }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
                         {/* 매핑: isHeader, depth=0 단일상품, 단일상품/1개 행 제외 */}
                         {!item.isHeader && item.depth !== 0 && item.displayLabel !== "단일상품" && item.displayLabel !== "1개" && (
@@ -1082,6 +1085,8 @@ export default function ProductsPage() {
                               color: "#adb5bd",
                               borderBottom: "1px solid #f1f3f5",
                               backgroundColor: col.highlight ? "#f4f6f8" : "transparent",
+                              py: { xs: 1, sm: 1.5 },
+                              ...(col.mobileHide ? { display: { xs: "none", md: "table-cell" } } : {}),
                             }}
                           >
                             —
@@ -1118,7 +1123,9 @@ export default function ProductsPage() {
                             fontWeight: col.highlight ? 700 : item.depth === 0 ? 500 : 400,
                             borderBottom: "1px solid #f1f3f5",
                             backgroundColor: col.highlight ? (item.depth === 0 ? "#f8f9fa" : bgColor) : "transparent",
+                            py: { xs: 1, sm: 1.5 },
                             ...(col.key === "name" ? { pl: namePl } : {}),
+                            ...(col.mobileHide ? { display: { xs: "none", md: "table-cell" } } : {}),
                           }}
                         >
                           <Box
@@ -1155,7 +1162,7 @@ export default function ProductsPage() {
                     })}
 
                     {/* 메모 */}
-                    <TableCell sx={{ whiteSpace: "nowrap", borderBottom: "1px solid #f1f3f5" }}>
+                    <TableCell sx={{ whiteSpace: "nowrap", borderBottom: "1px solid #f1f3f5", py: { xs: 1, sm: 1.5 }, display: { xs: "none", md: "table-cell" } }}>
                       {!item.isHeader ? (
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                           <TextField
