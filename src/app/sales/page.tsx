@@ -486,7 +486,8 @@ export default function SalesPage() {
                         ) : !orders || orders.length === 0 ? (
                           <Typography sx={{ fontSize: '0.78rem', color: '#adb5bd', textAlign: 'center', py: 1 }}>주문 데이터 없음</Typography>
                         ) : (
-                          <Table size="small">
+                          <Box sx={{ overflowX: 'auto' }}>
+                          <Table size="small" sx={{ minWidth: 480 }}>
                             <TableHead>
                               <TableRow>
                                 <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>주문번호</TableCell>
@@ -522,6 +523,7 @@ export default function SalesPage() {
                               })}
                             </TableBody>
                           </Table>
+                          </Box>
                         )}
                       </Box>
                     </Collapse>
@@ -604,7 +606,8 @@ export default function SalesPage() {
                         ) : !orders || orders.length === 0 ? (
                           <Typography sx={{ fontSize: '0.78rem', color: '#adb5bd', textAlign: 'center', py: 1 }}>주문 데이터 없음</Typography>
                         ) : (
-                          <Table size="small">
+                          <Box sx={{ overflowX: 'auto' }}>
+                          <Table size="small" sx={{ minWidth: 560 }}>
                             <TableHead>
                               <TableRow>
                                 <TableCell sx={{ ...thSx, fontSize: '0.7rem', py: 0.8 }}>주문번호</TableCell>
@@ -645,6 +648,7 @@ export default function SalesPage() {
                               })}
                             </TableBody>
                           </Table>
+                          </Box>
                         )}
                       </Box>
                     </Collapse>
@@ -853,16 +857,27 @@ export default function SalesPage() {
     </TableContainer>
   );
 
+  const isPrevDisabled = year === 2025 && month === 1;
+  const isNextDisabled = year === currentYear && month === currentMonth;
+  const goPrev = () => {
+    if (isPrevDisabled) return;
+    if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
+    clearDetail();
+  };
+  const goNext = () => {
+    if (isNextDisabled) return;
+    if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1);
+    clearDetail();
+  };
+
   return (
     <>
     <Backdrop open={importing} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0,0,0,0.6)' }}>
       <CircularProgress sx={{ color: '#fff' }} size={48} />
       <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>데이터 가져오는 중...</Typography>
     </Backdrop>
-    {/* 좌우 월 이동 버튼 */}
+    {/* 좌우 월 이동 버튼 (sm 이상에서만 표시) */}
     {(() => {
-      const isPrevDisabled = year === 2025 && month === 1;
-      const isNextDisabled = year === currentYear && month === currentMonth;
       const btnSx = {
         position: 'fixed' as const,
         top: '50%',
@@ -873,18 +888,9 @@ export default function SalesPage() {
         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         width: 40,
         height: 40,
+        display: { xs: 'none', sm: 'flex' },
         '&:hover': { backgroundColor: '#f8f9fa', borderColor: '#adb5bd' },
         '&.Mui-disabled': { backgroundColor: '#f8f9fa', borderColor: '#f1f3f5', color: '#dee2e6' },
-      };
-      const goPrev = () => {
-        if (isPrevDisabled) return;
-        if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
-        clearDetail();
-      };
-      const goNext = () => {
-        if (isNextDisabled) return;
-        if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1);
-        clearDetail();
       };
       return (
         <>
@@ -897,10 +903,25 @@ export default function SalesPage() {
         </>
       );
     })()}
-    <Container maxWidth="lg" sx={{ pt: 3, pb: 4 }}>
+    <Container maxWidth="lg" sx={{ pt: { xs: 2, sm: 3 }, pb: { xs: 3, sm: 4 } }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {/* 헤더 + 월 선택 */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          {/* 모바일 이전 월 버튼 */}
+          <IconButton
+            onClick={goPrev}
+            disabled={isPrevDisabled}
+            size="small"
+            sx={{
+              display: { xs: 'inline-flex', sm: 'none' },
+              border: '1px solid #dee2e6',
+              borderRadius: 1.5,
+              p: 0.5,
+              '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#dee2e6' },
+            }}
+          >
+            <ChevronLeftIcon sx={{ fontSize: 18, color: '#495057' }} />
+          </IconButton>
           <Select
             value={year}
             onChange={(e) => { setYear(Number(e.target.value)); setMonth(1); clearDetail(); }}
@@ -921,18 +942,35 @@ export default function SalesPage() {
               <MenuItem key={y} value={y}>{y}년</MenuItem>
             ))}
           </Select>
-          <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.7)', '&.MuiButton-contained': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' }, '&.MuiButton-contained:hover': { backgroundColor: '#343a40' } } }}>
-            {monthButtons.map((m) => (
-              <Button
-                key={m}
-                variant={m === month ? 'contained' : 'outlined'}
-                onClick={() => { setMonth(m); clearDetail(); }}
-                sx={{ minWidth: 40 }}
-              >
-                {m}월
-              </Button>
-            ))}
-          </ButtonGroup>
+          <Box sx={{ overflowX: 'auto', flex: '1 1 0', minWidth: 0 }}>
+            <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.7)', '&.MuiButton-contained': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' }, '&.MuiButton-contained:hover': { backgroundColor: '#343a40' } } }}>
+              {monthButtons.map((m) => (
+                <Button
+                  key={m}
+                  variant={m === month ? 'contained' : 'outlined'}
+                  onClick={() => { setMonth(m); clearDetail(); }}
+                  sx={{ minWidth: 40 }}
+                >
+                  {m}월
+                </Button>
+              ))}
+            </ButtonGroup>
+          </Box>
+          {/* 모바일 다음 월 버튼 */}
+          <IconButton
+            onClick={goNext}
+            disabled={isNextDisabled}
+            size="small"
+            sx={{
+              display: { xs: 'inline-flex', sm: 'none' },
+              border: '1px solid #dee2e6',
+              borderRadius: 1.5,
+              p: 0.5,
+              '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#dee2e6' },
+            }}
+          >
+            <ChevronRightIcon sx={{ fontSize: 18, color: '#495057' }} />
+          </IconButton>
           <Box sx={{ display: 'flex', gap: 1, ml: 'auto' }}>
             <Button
               variant="outlined"
@@ -955,10 +993,10 @@ export default function SalesPage() {
         </Box>
 
         {/* 월 매출 총합 — B 레이아웃 */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'stretch' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'stretch', flexDirection: { xs: 'column', sm: 'row' } }}>
           {/* 좌: 실순이익 히어로 카드 */}
           <Paper elevation={0} sx={{
-            flex: '0 0 240px',
+            flex: { sm: '0 0 240px' },
             p: 2.5,
             borderRadius: 3,
             border: `1.5px solid ${loading ? '#e9ecef' : netProfit >= 0 ? '#b2f2bb' : '#ffc9c9'}`,
@@ -980,7 +1018,7 @@ export default function SalesPage() {
 
           {/* 중: 서브 그리드 */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1 }}>
               {[
                 { label: `${month}월 매출총합`, value: totalMarketplace + totalRocketGrowth + totalSmartstore, onClick: () => fetchMonthly(year, month, 'all', `${month}월 전체`) },
                 { label: '쿠팡(판매자배송)', value: totalMarketplace, onClick: () => fetchMonthly(year, month, 'marketplace', `${month}월 쿠팡(판매자배송)`) },
@@ -1000,7 +1038,7 @@ export default function SalesPage() {
                 </Paper>
               ))}
             </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1 }}>
               {[
                 { label: `${month}월 순이익`, sub: '(원가/수수료 차감)', value: totalProfit },
                 { label: '쿠팡(판매자배송)', value: totalMarketplaceProfit },
@@ -1096,8 +1134,8 @@ export default function SalesPage() {
                 elevation={0}
                 onClick={() => !isFuture && handleChannelClick(day, 'all')}
                 sx={{
-                  p: 1,
-                  minHeight: 96,
+                  p: { xs: 0.75, sm: 1 },
+                  minHeight: { xs: 60, sm: 96 },
                   cursor: isFuture ? 'default' : 'pointer',
                   borderRadius: 2,
                   border: isSelectedDay ? '1.5px solid #343a40' : isToday ? '1px solid #228be6' : '1px solid rgba(0,0,0,0.06)',
@@ -1127,26 +1165,26 @@ export default function SalesPage() {
                 ) : (
                   <>
                     {[
-                      { label: '스스', bg: '#03c75a', value: ssAmount, color: '#495057', bold: false },
-                      { label: '쿠팡판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false },
-                      { label: '쿠팡로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false },
-                      { label: '총매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true },
-                      { label: '총순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true },
-                    ].map(({ label, bg, value, color, bold }) => (
-                      <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      { label: '스스', bg: '#03c75a', value: ssAmount, color: '#495057', bold: false, mobileHide: true },
+                      { label: '쿠팡판매', bg: '#868e96', value: mpAmount, color: '#495057', bold: false, mobileHide: true },
+                      { label: '쿠팡로켓', bg: '#fd7e14', value: rgAmount, color: '#495057', bold: false, mobileHide: true },
+                      { label: '총매출', bg: '#343a40', value: totalAmount, color: '#1a1a1b', bold: true, mobileHide: false },
+                      { label: '총순익', bg: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', value: totalDayProfit, color: totalDayProfit >= 0 ? '#2b8a3e' : '#e03131', bold: true, mobileHide: false },
+                    ].map(({ label, bg, value, color, bold, mobileHide }) => (
+                      <Box key={label} sx={{ display: mobileHide ? { xs: 'none', sm: 'flex' } : 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: bg, borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
                         <Typography sx={{ fontSize: '0.63rem', fontWeight: bold ? 600 : 400, color, lineHeight: 1.4 }}>{formatNumber(value)}</Typography>
                       </Box>
                     ))}
                     {hasRefund && (
                       <>
-                        <Box sx={{ borderTop: '1px solid #f1f3f5', mt: 0.3, mb: 0.1 }} />
+                        <Box sx={{ borderTop: '1px solid #f1f3f5', mt: 0.3, mb: 0.1, display: { xs: 'none', sm: 'block' } }} />
                         {[
                           { label: '스스반품', value: ssRefundCount, hide: ssRefundCount === 0 },
                           { label: '쿠팡판매반품', value: mpRefundCount, hide: mpRefundCount === 0 },
                           { label: '쿠팡로켓반품', value: rgRefundCount, hide: rgRefundCount === 0 },
                         ].filter(item => !item.hide).map(({ label, value }) => (
-                          <Box key={label} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Box key={label} sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'space-between' }}>
                             <Box component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: '#fff', backgroundColor: '#e03131', borderRadius: 0.5, px: 0.4, py: 0.1, lineHeight: 1.4, flexShrink: 0 }}>{label}</Box>
                             <Typography sx={{ fontSize: '0.63rem', color: '#e03131', lineHeight: 1.4 }}>{value}건</Typography>
                           </Box>
