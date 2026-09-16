@@ -113,7 +113,7 @@ export default function ProductsPage() {
   const [mappings, setMappings] = useState<Record<string, string[]>>({});
   const [selectedMappings, setSelectedMappings] = useState<string[]>([]);
   const [memoValues, setMemoValues] = useState<Record<string, string>>({});
-  const [bundleDialog, setBundleDialog] = useState<{ open: boolean; baseName: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
+  const [bundleDialog, setBundleDialog] = useState<{ open: boolean; baseName: string; channelName?: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
   const [bundleMultiplier, setBundleMultiplier] = useState(2);
   const [channelDialog, setChannelDialog] = useState<{ open: boolean; baseName: string; baseUnitCost: number; baseBarcordFee: number; baseBoxFee: number } | null>(null);
   const [channelType, setChannelType] = useState("쿠팡(판매자배송)");
@@ -734,8 +734,10 @@ export default function ProductsPage() {
 
   const handleBundleAdd = async () => {
     if (!bundleDialog || !currentStore) return;
-    const { baseName, baseUnitCost, baseBarcordFee, baseBoxFee } = bundleDialog;
-    const bundleName = `${baseName} (x${bundleMultiplier})`;
+    const { baseName, channelName, baseUnitCost, baseBarcordFee, baseBoxFee } = bundleDialog;
+    const bundleName = channelName
+      ? `${baseName} [${channelName}] (x${bundleMultiplier})`
+      : `${baseName} (x${bundleMultiplier})`;
     const storeId = currentStore.id;
 
     const supabase = createClient();
@@ -744,7 +746,7 @@ export default function ProductsPage() {
       store_id: storeId,
       base_name: baseName,
       multiplier: bundleMultiplier,
-      category: "",
+      category: channelName || "",
       selling_price: 0,
       market_commission: 0,
       unit_cost: baseUnitCost * bundleMultiplier,
@@ -999,7 +1001,7 @@ export default function ProductsPage() {
                           </Tooltip>
                         )}
 
-                        {/* depth 0 기본 상품: 채널 추가, 배수 추가 */}
+                        {/* depth 0 기본 상품: 채널 추가, 채널 없을 때만 배수 추가 */}
                         {item.depth === 0 && (
                           <>
                             <IconButton
@@ -1010,20 +1012,31 @@ export default function ProductsPage() {
                             >
                               <Typography sx={{ fontSize: 11, color: "#adb5bd", fontWeight: 700, lineHeight: 1 }}>CH</Typography>
                             </IconButton>
+                            {/* 채널 구조가 없을 때만 배수 추가 버튼 표시 */}
+                            {!item.isHeader && (
+                              <IconButton
+                                size="small"
+                                onClick={() => setBundleDialog({ open: true, baseName: item.name, baseUnitCost: item.unit_cost, baseBarcordFee: item.barcode_fee, baseBoxFee: item.box_fee })}
+                                sx={{ p: 0.25 }}
+                                title="배수 상품 추가"
+                              >
+                                <AddCircleOutlineIcon sx={{ fontSize: 16, color: "#adb5bd" }} />
+                              </IconButton>
+                            )}
+                          </>
+                        )}
+
+                        {/* depth 1 채널 헤더: 배수 추가 + 옵션 추가 + 삭제 */}
+                        {item.depth === 1 && item.isHeader && (
+                          <>
                             <IconButton
                               size="small"
-                              onClick={() => setBundleDialog({ open: true, baseName: item.name, baseUnitCost: item.unit_cost, baseBarcordFee: item.barcode_fee, baseBoxFee: item.box_fee })}
+                              onClick={() => setBundleDialog({ open: true, baseName: item.base_name!, channelName: item.displayLabel, baseUnitCost: item.unit_cost, baseBarcordFee: item.barcode_fee, baseBoxFee: item.box_fee })}
                               sx={{ p: 0.25 }}
                               title="배수 상품 추가"
                             >
                               <AddCircleOutlineIcon sx={{ fontSize: 16, color: "#adb5bd" }} />
                             </IconButton>
-                          </>
-                        )}
-
-                        {/* depth 1 채널 헤더: 옵션 추가 + 삭제 */}
-                        {item.depth === 1 && item.isHeader && (
-                          <>
                             {(optionInfoMap[item.base_name!]?.length > 0) && (
                               <IconButton
                                 size="small"
@@ -1235,7 +1248,11 @@ export default function ProductsPage() {
 
       {/* 배수 상품 추가 다이얼로그 */}
       <Dialog open={bundleDialog?.open ?? false} onClose={() => setBundleDialog(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontSize: "1rem" }}>배수 상품 추가 — {bundleDialog?.baseName}</DialogTitle>
+        <DialogTitle sx={{ fontSize: "1rem" }}>
+          배수 상품 추가 — {bundleDialog?.channelName
+            ? `${bundleDialog.baseName} [${bundleDialog.channelName}]`
+            : bundleDialog?.baseName}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 2 }}>
             <Box>
@@ -1247,7 +1264,9 @@ export default function ProductsPage() {
               </Select>
             </Box>
             <Typography variant="body2" color="text.secondary">
-              상품명: {bundleDialog?.baseName} (x{bundleMultiplier})<br />
+              상품명: {bundleDialog?.channelName
+                ? `${bundleDialog.baseName} [${bundleDialog.channelName}] (x${bundleMultiplier})`
+                : `${bundleDialog?.baseName} (x${bundleMultiplier})`}<br />
               원가: {fmt((bundleDialog?.baseUnitCost ?? 0) * bundleMultiplier)}원 (자동 계산)<br />
               판매가, 수수료, 입출고요금, 배송비는 추가 후 직접 입력해주세요.
             </Typography>
