@@ -381,7 +381,31 @@ export default function CostPage() {
         onChange={(_, v) => setSelectedTab(v)}
         variant="scrollable"
         scrollButtons="auto"
-        sx={{ borderBottom: "1px solid #f1f3f5", mb: 2, "& .MuiTab-root": { color: "#868e96", fontWeight: 500, "&.Mui-selected": { color: "#1a1a1b", fontWeight: 700 } }, "& .MuiTabs-indicator": { backgroundColor: "#343a40" } }}
+        TabIndicatorProps={{ style: { display: "none" } }}
+        sx={{
+          mb: 2,
+          minHeight: 36,
+          "& .MuiTabs-flexContainer": { gap: 0.5 },
+          "& .MuiTabs-scrollButtons": { width: 24 },
+          "& .MuiTab-root": {
+            minHeight: 32,
+            py: 0.6,
+            px: 1.5,
+            borderRadius: 1.5,
+            fontSize: "0.82rem",
+            fontWeight: 500,
+            color: "#868e96",
+            border: "1px solid #dee2e6",
+            backgroundColor: "#fff",
+            minWidth: 0,
+            "&.Mui-selected": {
+              color: "#fff",
+              fontWeight: 700,
+              backgroundColor: "#1a1a1b",
+              borderColor: "#1a1a1b",
+            },
+          },
+        }}
       >
         {productNames.map((name) => (
           <Tab key={name} label={name} />
