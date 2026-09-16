@@ -156,7 +156,7 @@ export default function DashboardPage() {
   const periodLabel = month ? `${year}년 ${month}월` : `${year}년`;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
         <Backdrop open={syncing} sx={{ zIndex: (theme) => theme.zIndex.modal + 1, flexDirection: 'column', gap: 2, backgroundColor: 'rgba(0,0,0,0.6)' }}>
           <CircularProgress sx={{ color: '#fff' }} size={48} />
           <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>오늘 데이터 동기화 중...</Typography>
@@ -246,7 +246,7 @@ export default function DashboardPage() {
         {/* 매출 섹션 */}
         <Paper sx={{ ...cardSx, mb: 1 }}>
           <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>매출 현황</Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(4, 1fr)' }, gap: 1 }}>
             {[
               { label: '총 매출', value: totalSales.total },
               { label: '쿠팡(판매자배송)', value: totalSales.marketplace },
@@ -344,14 +344,14 @@ export default function DashboardPage() {
 
         {/* 지출 + 순이익 + 마진율 */}
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mb: 1 }}>
-          <Paper sx={cardSx}>
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>지출</Typography>
+          <Paper sx={{ ...cardSx, p: { xs: 1.5, sm: 2.5 } }}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: { xs: 1, sm: 2 } }}>지출</Typography>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 지출</Typography>
               {loading ? (
-                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+                <Skeleton variant="rounded" width="80%" height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
               ) : (
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#e03131', letterSpacing: '-0.02em' }}>
+                <Typography sx={{ fontSize: { xs: '1rem', sm: '1.5rem' }, fontWeight: 700, color: '#e03131', letterSpacing: '-0.02em' }}>
                   {formatNumber(totalExpenses)}
                   <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
                 </Typography>
@@ -359,14 +359,14 @@ export default function DashboardPage() {
             </Box>
           </Paper>
 
-          <Paper sx={cardSx}>
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>순이익</Typography>
+          <Paper sx={{ ...cardSx, p: { xs: 1.5, sm: 2.5 } }}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: { xs: 1, sm: 2 } }}>순이익</Typography>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 순이익</Typography>
               {loading ? (
-                <Skeleton variant="rounded" width={140} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+                <Skeleton variant="rounded" width="80%" height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
               ) : (
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
+                <Typography sx={{ fontSize: { xs: '1rem', sm: '1.5rem' }, fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
                   {formatNumber(totalProfit)}
                   <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>원</Typography>
                 </Typography>
@@ -374,14 +374,14 @@ export default function DashboardPage() {
             </Box>
           </Paper>
 
-          <Paper sx={cardSx}>
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: 2 }}>마진율</Typography>
+          <Paper sx={{ ...cardSx, p: { xs: 1.5, sm: 2.5 } }}>
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#868e96', mb: { xs: 1, sm: 2 } }}>마진율</Typography>
             <Box>
               <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', mb: 0.5 }}>{periodLabel} 마진율</Typography>
               {loading ? (
-                <Skeleton variant="rounded" width={100} height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
+                <Skeleton variant="rounded" width="60%" height={28} sx={{ borderRadius: 1, mt: 0.5 }} />
               ) : (
-                <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
+                <Typography sx={{ fontSize: { xs: '1rem', sm: '1.5rem' }, fontWeight: 700, color: totalProfit >= 0 ? '#2b8a3e' : '#e03131', letterSpacing: '-0.02em' }}>
                   {totalSales.total === 0 ? '-' : (totalProfit / totalSales.total * 100).toFixed(1)}
                   <Typography component="span" sx={{ fontSize: '0.8rem', fontWeight: 400, color: '#adb5bd', ml: 0.5 }}>%</Typography>
                 </Typography>
@@ -396,9 +396,9 @@ export default function DashboardPage() {
             {month ? `${month}월 일별 매출 · 지출 · 순이익` : '월별 매출 · 지출 · 순이익'}
           </Typography>
           {loading ? (
-            <Skeleton variant="rounded" width="100%" height={320} sx={{ borderRadius: 2 }} />
+            <Skeleton variant="rounded" width="100%" height={240} sx={{ borderRadius: 2 }} />
           ) : (
-            <Box sx={{ width: '100%', height: 320 }}>
+            <Box sx={{ width: '100%', height: { xs: 200, sm: 280, md: 320 } }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} barCategoryGap="25%">
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f3f5" vertical={false} />
@@ -490,8 +490,8 @@ export default function DashboardPage() {
             }));
             const totalAmt = expenseByType.reduce((s, e) => s + e.amount, 0);
             return (
-              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Box sx={{ width: '50%', minWidth: 220, height: 240 }}>
+              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' } }}>
+                <Box sx={{ width: { xs: '100%', sm: '50%' }, minWidth: { xs: 0, sm: 220 }, height: { xs: 200, sm: 240 } }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
@@ -507,7 +507,7 @@ export default function DashboardPage() {
                     </PieChart>
                   </ResponsiveContainer>
                 </Box>
-                <Box sx={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 160 }, width: { xs: '100%', sm: 'auto' }, display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {chartData.map((d) => (
                     <Box key={d.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: d.color, flexShrink: 0 }} />
@@ -537,19 +537,18 @@ export default function DashboardPage() {
               {loading ? (
                 <Skeleton variant="rounded" width="100%" height={160} sx={{ borderRadius: 2 }} />
               ) : (
-                <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 160, px: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, height: { xs: 120, sm: 160 }, px: 1 }}>
                   {ordersByDayOfWeek.map(({ day, count, isWeekend }) => {
                     const ratio = count / maxCount;
-                    const barH = Math.max(ratio * 120, count > 0 ? 4 : 0);
                     return (
                       <Box key={day} sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                         <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: isWeekend ? '#e03131' : '#495057' }}>
                           {count > 0 ? count.toLocaleString() : ''}
                         </Typography>
-                        <Box sx={{ width: '100%', display: 'flex', alignItems: 'flex-end', height: 120 }}>
+                        <Box sx={{ width: '100%', flex: 1, display: 'flex', alignItems: 'flex-end' }}>
                           <Box sx={{
                             width: '100%',
-                            height: barH,
+                            height: `${Math.max(ratio * 100, count > 0 ? 3 : 0)}%`,
                             borderRadius: '4px 4px 0 0',
                             backgroundColor: isWeekend ? '#ffe3e3' : '#e7f5ff',
                             border: `1px solid ${isWeekend ? '#ffa8a8' : '#a5d8ff'}`,
@@ -628,7 +627,7 @@ export default function DashboardPage() {
                       );
                     })}
                   </Box>
-                  <Box sx={{ width: '100%', height: 220 }}>
+                  <Box sx={{ width: '100%', height: { xs: 160, sm: 220 } }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f3f5" vertical={false} />
@@ -685,8 +684,8 @@ export default function DashboardPage() {
                   ))}
                 </Box>
               </Box>
-              <TableContainer>
-                <Table size="small">
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: 360 }}>
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#adb5bd', borderBottom: '1px solid #f1f3f5', width: 60, py: 1.2 }}>#</TableCell>
