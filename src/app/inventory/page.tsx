@@ -152,11 +152,12 @@ export default function InventoryPage() {
       <CircularProgress sx={{ color: '#fff' }} size={48} />
       <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>재고 동기화 중...</Typography>
     </Backdrop>
-    <Container maxWidth="lg" sx={{ pt: 3, pb: 4 }}>
+    <Container maxWidth="lg" sx={{ pt: { xs: 2, sm: 3 }, pb: { xs: 3, sm: 4 } }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#1a1a1b' }}>
+        {/* 헤더 */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontWeight: 700, fontSize: { xs: '1rem', sm: '1.1rem' }, color: '#1a1a1b' }}>
               로켓그로스 재고관리
             </Typography>
             {!loading && items.length > 0 && riskyCount > 0 && (
@@ -167,13 +168,13 @@ export default function InventoryPage() {
               </Box>
             )}
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             {updatedAt && !loading && (
-              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd' }}>
+              <Typography sx={{ fontSize: '0.75rem', color: '#adb5bd', display: { xs: 'none', sm: 'block' } }}>
                 {new Date(updatedAt).toLocaleString('ko-KR')} 기준
               </Typography>
             )}
-            <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, fontSize: '0.8rem', '&.active': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: '#f8f9fa' } } }}>
+            <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, fontSize: '0.75rem', px: { xs: 0.8, sm: 1.2 }, '&.active': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: '#f8f9fa' } } }}>
             {([['stock', '재고순'], ['daysLeft', '소진일순'], ['salesLast30', '판매량순']] as const).map(([key, label]) => (
               <Button
                 key={key}
@@ -192,7 +193,7 @@ export default function InventoryPage() {
                   startIcon={<SyncIcon sx={{ fontSize: 15, ...(syncing && { animation: `${spin} 1s linear infinite` }) }} />}
                   onClick={handleSync}
                   disabled={syncing || loading}
-                  sx={{ fontSize: '0.8rem', color: '#495057', borderColor: '#dee2e6', border: '1px solid', borderRadius: 2, '&:hover': { backgroundColor: '#f8f9fa' } }}
+                  sx={{ fontSize: '0.75rem', color: '#495057', borderColor: '#dee2e6', border: '1px solid', borderRadius: 2, '&:hover': { backgroundColor: '#f8f9fa' } }}
                 >
                   {syncing ? '동기화 중...' : '재고 동기화'}
                 </Button>
@@ -204,18 +205,18 @@ export default function InventoryPage() {
         {error ? (
           <Typography sx={{ color: '#e03131', fontSize: '0.85rem' }}>{error}</Typography>
         ) : (
-          <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3 }}>
+          <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3, overflowX: 'auto' }}>
             <Table size="small">
               <TableHead>
                 <TableRow>
                   <TableCell sx={thSx}>상품명</TableCell>
-                  <TableCell sx={thSx}>옵션명</TableCell>
-                  <TableCell align="right" sx={thSx}>판매가능재고</TableCell>
-                  <TableCell align="right" sx={thSx}>최근30일 판매량</TableCell>
-                  <TableCell align="right" sx={thSx}>일평균 판매량</TableCell>
-                  <TableCell align="right" sx={thSx}>예상 소진일</TableCell>
-                  <TableCell align="right" sx={thSx}>예측 품절일</TableCell>
-                  <TableCell align="right" sx={thSx}>입고권장수량</TableCell>
+                  <TableCell sx={{ ...thSx, display: { xs: 'none', sm: 'table-cell' } }}>옵션명</TableCell>
+                  <TableCell align="right" sx={thSx}>재고</TableCell>
+                  <TableCell align="right" sx={{ ...thSx, display: { xs: 'none', md: 'table-cell' } }}>30일 판매량</TableCell>
+                  <TableCell align="right" sx={{ ...thSx, display: { xs: 'none', lg: 'table-cell' } }}>일평균</TableCell>
+                  <TableCell align="right" sx={thSx}>소진일</TableCell>
+                  <TableCell align="right" sx={{ ...thSx, display: { xs: 'none', md: 'table-cell' } }}>품절예정일</TableCell>
+                  <TableCell align="right" sx={{ ...thSx, display: { xs: 'none', lg: 'table-cell' } }}>입고권장</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -246,20 +247,27 @@ export default function InventoryPage() {
                         key={item.vendorItemId}
                         sx={{ backgroundColor: isRisky ? '#fff9f9' : 'transparent' }}
                       >
-                        <TableCell sx={tdSx}>{item.productName}</TableCell>
-                        <TableCell sx={{ ...tdSx, color: '#495057' }}>{optionName}</TableCell>
+                        <TableCell sx={{ ...tdSx, whiteSpace: { xs: 'normal', sm: 'nowrap' } }}>
+                          {item.productName}
+                          {optionName && (
+                            <Typography component="span" sx={{ display: { xs: 'block', sm: 'none' }, fontSize: '0.75rem', color: '#868e96', mt: 0.2 }}>
+                              {optionName}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell sx={{ ...tdSx, color: '#495057', display: { xs: 'none', sm: 'table-cell' } }}>{optionName}</TableCell>
                         <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(item.stock)}</TableCell>
-                        <TableCell align="right" sx={tdSx}>{formatNumber(item.salesLast30)}</TableCell>
-                        <TableCell align="right" sx={tdSx}>{item.dailyAvg.toFixed(1)}</TableCell>
+                        <TableCell align="right" sx={{ ...tdSx, display: { xs: 'none', md: 'table-cell' } }}>{formatNumber(item.salesLast30)}</TableCell>
+                        <TableCell align="right" sx={{ ...tdSx, display: { xs: 'none', lg: 'table-cell' } }}>{item.dailyAvg.toFixed(1)}</TableCell>
                         <TableCell align="right" sx={tdSx}>
                           <DaysLeftCell daysLeft={item.daysLeft} />
                         </TableCell>
-                        <TableCell align="right" sx={tdSx}>
+                        <TableCell align="right" sx={{ ...tdSx, display: { xs: 'none', md: 'table-cell' } }}>
                           {item.stockoutDate
                             ? item.stockoutDate.slice(5).replace('-', '/')
                             : <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd' }}>-</Typography>}
                         </TableCell>
-                        <TableCell align="right" sx={tdSx}>
+                        <TableCell align="right" sx={{ ...tdSx, display: { xs: 'none', lg: 'table-cell' } }}>
                           {item.recommendedRestock > 1
                             ? <Box sx={{ display: 'inline-block', px: 1, py: 0.3, borderRadius: 1, backgroundColor: '#fff5f5', color: '#e03131', fontWeight: 600, fontSize: '0.85rem' }}>{item.recommendedRestock}개</Box>
                             : <Typography sx={{ fontSize: '0.85rem', color: '#adb5bd' }}>-</Typography>}

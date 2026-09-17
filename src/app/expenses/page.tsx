@@ -22,6 +22,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import Skeleton from '@mui/material/Skeleton';
@@ -122,8 +124,9 @@ export default function ExpensesPage() {
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
 
-  const [year] = useState(currentYear);
+  const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
+  const yearOptions = Array.from({ length: currentYear - 2024 }, (_, i) => 2025 + i);
   const { currentStore } = useStore();
 
   useEffect(() => {
@@ -279,6 +282,17 @@ export default function ExpensesPage() {
     }
   };
 
+  const isPrevDisabled = year === 2025 && month === 1;
+  const isNextDisabled = year === currentYear && month === currentMonth;
+  const goPrev = () => {
+    if (isPrevDisabled) return;
+    if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
+  };
+  const goNext = () => {
+    if (isNextDisabled) return;
+    if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1);
+  };
+
   const lastDay = new Date(year, month, 0).getDate();
   const dateMin = `${year}-${String(month).padStart(2, '0')}-01`;
   const dateMax = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
@@ -289,26 +303,68 @@ export default function ExpensesPage() {
       <CircularProgress sx={{ color: '#fff' }} size={48} />
       <Typography sx={{ color: '#fff', fontWeight: 600, fontSize: '1rem' }}>광고비 등록 중...</Typography>
     </Backdrop>
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    {/* 좌우 월 이동 버튼 (sm 이상에서만 표시) */}
+    {(() => {
+      const btnSx = {
+        position: 'fixed' as const,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        zIndex: 10,
+        backgroundColor: '#fff',
+        border: '1px solid #dee2e6',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        width: 40,
+        height: 40,
+        display: { xs: 'none', sm: 'flex' },
+        '&:hover': { backgroundColor: '#f8f9fa', borderColor: '#adb5bd' },
+        '&.Mui-disabled': { backgroundColor: '#f8f9fa', borderColor: '#f1f3f5', color: '#dee2e6' },
+      };
+      return (
+        <>
+          <IconButton onClick={goPrev} disabled={isPrevDisabled} sx={{ ...btnSx, left: 'max(8px, calc(50% - 648px))' }}>
+            <ChevronLeftIcon sx={{ fontSize: 22, color: '#495057' }} />
+          </IconButton>
+          <IconButton onClick={goNext} disabled={isNextDisabled} sx={{ ...btnSx, right: 'max(8px, calc(50% - 648px))' }}>
+            <ChevronRightIcon sx={{ fontSize: 22, color: '#495057' }} />
+          </IconButton>
+        </>
+      );
+    })()}
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3 } }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         {/* 월 선택 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.2rem', color: '#1a1a1b' }}>
-            {year}년
-          </Typography>
-          <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, '&.MuiButton-contained': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' } } }}>
-            {monthButtons.map((m) => (
-              <Button key={m} variant={m === month ? 'contained' : 'outlined'} onClick={() => setMonth(m)} sx={{ minWidth: 40 }}>
-                {m}월
-              </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          {/* 모바일 이전 월 버튼 */}
+          <IconButton onClick={goPrev} disabled={isPrevDisabled} size="small" sx={{ display: { xs: 'inline-flex', sm: 'none' }, border: '1px solid #dee2e6', borderRadius: 1.5, p: 0.5, '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#dee2e6' } }}>
+            <ChevronLeftIcon sx={{ fontSize: 18, color: '#495057' }} />
+          </IconButton>
+          <Select
+            value={year}
+            onChange={(e) => { setYear(Number(e.target.value)); setMonth(1); }}
+            size="small"
+            sx={{ fontWeight: 500, fontSize: '0.8125rem', color: '#868e96', backgroundColor: '#fff', height: 30, '& .MuiSelect-select': { py: 0, display: 'flex', alignItems: 'center' }, '& .MuiOutlinedInput-notchedOutline': { borderColor: '#dee2e6' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#adb5bd' }, minWidth: 90 }}
+          >
+            {yearOptions.map((y) => (
+              <MenuItem key={y} value={y}>{y}년</MenuItem>
             ))}
-          </ButtonGroup>
-          <Box sx={{ ml: 'auto' }}>
-            <Button variant="outlined" size="small" onClick={openAdDialog}
-              sx={{ borderColor: '#dee2e6', color: '#495057', fontSize: '0.8rem', fontWeight: 500 }}>
-              광고비 가져오기
-            </Button>
+          </Select>
+          <Box sx={{ overflowX: 'auto', flex: '1 1 0', minWidth: 0 }}>
+            <ButtonGroup size="small" sx={{ '& .MuiButton-root': { borderColor: '#dee2e6', color: '#868e96', fontWeight: 500, backgroundColor: 'rgba(255,255,255,0.7)', '&.MuiButton-contained': { backgroundColor: '#343a40', borderColor: '#343a40', color: '#fff' }, '&:hover': { backgroundColor: 'rgba(255,255,255,0.9)' }, '&.MuiButton-contained:hover': { backgroundColor: '#343a40' } } }}>
+              {monthButtons.map((m) => (
+                <Button key={m} variant={m === month ? 'contained' : 'outlined'} onClick={() => setMonth(m)} sx={{ minWidth: 40 }}>
+                  {m}월
+                </Button>
+              ))}
+            </ButtonGroup>
           </Box>
+          {/* 모바일 다음 월 버튼 */}
+          <IconButton onClick={goNext} disabled={isNextDisabled} size="small" sx={{ display: { xs: 'inline-flex', sm: 'none' }, border: '1px solid #dee2e6', borderRadius: 1.5, p: 0.5, '&.Mui-disabled': { borderColor: '#f1f3f5', color: '#dee2e6' } }}>
+            <ChevronRightIcon sx={{ fontSize: 18, color: '#495057' }} />
+          </IconButton>
+          <Button variant="outlined" size="small" onClick={openAdDialog}
+            sx={{ ml: { xs: 0, sm: 'auto' }, borderColor: '#dee2e6', color: '#495057', fontSize: '0.8rem', fontWeight: 500 }}>
+            광고비 가져오기
+          </Button>
         </Box>
 
         {/* 총 지출 — 파이차트 + 리스트 */}
@@ -344,9 +400,9 @@ export default function ExpensesPage() {
             };
 
             return (
-              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' } }}>
                 {/* 파이차트 */}
-                <Box sx={{ width: '50%', minWidth: 220, height: 240 }}>
+                <Box sx={{ width: { xs: '100%', sm: '50%' }, minWidth: { sm: 220 }, height: 220 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
@@ -363,7 +419,7 @@ export default function ExpensesPage() {
                   </ResponsiveContainer>
                 </Box>
                 {/* 리스트 */}
-                <Box sx={{ flex: 1, minWidth: 160, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ flex: 1, width: { xs: '100%', sm: 'auto' }, display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {chartData.map((d) => (
                     <Box key={d.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box sx={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: d.color, flexShrink: 0 }} />
@@ -384,21 +440,22 @@ export default function ExpensesPage() {
 
         {/* 지출 입력 */}
         <Paper sx={cardSx}>
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-            <TextField type="date" size="small" value={newDate} onChange={(e) => setNewDate(e.target.value)} inputProps={{ min: dateMin, max: dateMax }} sx={{ width: 170 }} />
-            <Select size="small" value={newType} onChange={(e) => setNewType(e.target.value)} sx={{ width: 170, fontSize: '0.85rem' }}>
+          {/* 모바일: 2×2 그리드 + 버튼 / PC: 한 줄 */}
+          <Box sx={{ display: { xs: 'grid', sm: 'flex' }, gridTemplateColumns: { xs: '1fr 1fr' }, gap: 1.5, alignItems: 'center' }}>
+            <TextField type="date" size="small" value={newDate} onChange={(e) => setNewDate(e.target.value)} inputProps={{ min: dateMin, max: dateMax }} sx={{ width: { xs: '100%', sm: 170 } }} />
+            <Select size="small" value={newType} onChange={(e) => setNewType(e.target.value)} sx={{ width: { xs: '100%', sm: 170 }, fontSize: '0.85rem' }}>
               {EXPENSE_TYPES.map((type) => (
                 <MenuItem key={type} value={type} sx={{ fontSize: '0.85rem' }}>{type}</MenuItem>
               ))}
             </Select>
-            <TextField type="number" size="small" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="금액 입력" sx={{ width: 150 }} />
-            <TextField size="small" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} placeholder="메모 (선택)" sx={{ flex: 1, minWidth: 120 }} onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }} />
-            <Button variant="contained" size="small" onClick={handleAdd} disabled={saving} startIcon={<AddIcon />}>등록</Button>
+            <TextField type="number" size="small" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="금액 입력" sx={{ width: { xs: '100%', sm: 150 } }} />
+            <TextField size="small" value={newMemo} onChange={(e) => setNewMemo(e.target.value)} placeholder="메모 (선택)" sx={{ flex: { sm: 1 }, width: { xs: '100%' }, minWidth: { sm: 120 } }} onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }} />
+            <Button variant="contained" size="small" onClick={handleAdd} disabled={saving} startIcon={<AddIcon />} sx={{ gridColumn: { xs: '1 / -1' }, width: { xs: '100%', sm: 'auto' } }}>등록</Button>
           </Box>
         </Paper>
 
         {/* 지출 테이블 */}
-        <Paper elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3, overflow: 'hidden' }}>
+        <Paper elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3, overflowX: 'auto' }}>
           <TableContainer>
             <Table size="small">
               <TableHead>
@@ -406,7 +463,7 @@ export default function ExpensesPage() {
                   <TableCell sx={{ ...thSx, width: 120 }}>날짜</TableCell>
                   <TableCell sx={{ ...thSx, width: 130 }}>지출타입</TableCell>
                   <TableCell align="right" sx={{ ...thSx, width: 150 }}>금액</TableCell>
-                  <TableCell sx={thSx}>메모</TableCell>
+                  <TableCell sx={{ ...thSx, display: { xs: 'none', sm: 'table-cell' } }}>메모</TableCell>
                   <TableCell sx={{ ...thSx, width: 80 }} />
                 </TableRow>
               </TableHead>
@@ -417,7 +474,7 @@ export default function ExpensesPage() {
                       <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={90} height={18} sx={{ borderRadius: 1 }} /></TableCell>
                       <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={100} height={18} sx={{ borderRadius: 1 }} /></TableCell>
                       <TableCell align="right" sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width={80} height={18} sx={{ borderRadius: 1, ml: 'auto' }} /></TableCell>
-                      <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }}><Skeleton variant="rounded" width="60%" height={18} sx={{ borderRadius: 1 }} /></TableCell>
+                      <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5', display: { xs: 'none', sm: 'table-cell' } }}><Skeleton variant="rounded" width="60%" height={18} sx={{ borderRadius: 1 }} /></TableCell>
                       <TableCell sx={{ py: 1.2, borderBottom: '1px solid #f1f3f5' }} />
                     </TableRow>
                   ))
@@ -436,7 +493,7 @@ export default function ExpensesPage() {
                       <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f3f5' }}>
                         <TextField type="number" size="small" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} sx={{ width: '100%' }} />
                       </TableCell>
-                      <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f3f5' }}>
+                      <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f3f5', display: { xs: 'none', sm: 'table-cell' } }}>
                         <TextField size="small" value={editMemo} onChange={(e) => setEditMemo(e.target.value)} sx={{ width: '100%' }} onKeyDown={(e) => { if (e.key === 'Enter') handleUpdate(); if (e.key === 'Escape') cancelEdit(); }} />
                       </TableCell>
                       <TableCell sx={{ py: 1, whiteSpace: 'nowrap', borderBottom: '1px solid #f1f3f5' }}>
@@ -449,9 +506,16 @@ export default function ExpensesPage() {
                       <TableCell sx={tdSx}>
                         {new Date(row.expense_date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
                       </TableCell>
-                      <TableCell sx={tdSx}>{row.expense_type}</TableCell>
+                      <TableCell sx={tdSx}>
+                        {row.expense_type}
+                        {row.memo && (
+                          <Typography component="span" sx={{ display: { xs: 'block', sm: 'none' }, fontSize: '0.75rem', color: '#868e96', mt: 0.2 }}>
+                            {row.memo}
+                          </Typography>
+                        )}
+                      </TableCell>
                       <TableCell align="right" sx={{ ...tdSx, fontWeight: 600 }}>{formatNumber(row.amount)}원</TableCell>
-                      <TableCell sx={{ ...tdSx, color: '#868e96' }}>{row.memo}</TableCell>
+                      <TableCell sx={{ ...tdSx, color: '#868e96', display: { xs: 'none', sm: 'table-cell' } }}>{row.memo}</TableCell>
                       <TableCell sx={{ ...tdSx, whiteSpace: 'nowrap' }}>
                         <IconButton size="small" onClick={() => startEdit(row)} sx={{ color: '#adb5bd' }}><EditIcon fontSize="small" /></IconButton>
                         <IconButton size="small" onClick={() => handleDelete(row.id)} sx={{ color: '#adb5bd', '&:hover': { color: '#e03131' } }}><DeleteIcon fontSize="small" /></IconButton>

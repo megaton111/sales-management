@@ -18,6 +18,7 @@ export const EXPENSE_TYPES = [
   '제품촬영',
   '솔루션 구독',
   '택배비',
+  '쿠폰할인',
   '기타',
 ] as const;
 

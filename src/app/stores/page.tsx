@@ -176,13 +176,19 @@ export default function StoresPage() {
   const availablePlatforms = Object.keys(PLATFORMS).filter(p => !connectedPlatforms.has(p));
 
   return (
-    <Container maxWidth="lg" sx={{ pt: 3, pb: 4 }}>
-      <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
+    <Container maxWidth="lg" sx={{ pt: { xs: 2, sm: 3 }, pb: { xs: 3, sm: 4 } }}>
+      <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start', flexDirection: { xs: 'column', sm: 'row' } }}>
 
-        {/* 좌: 스토어 목록 */}
-        <Box sx={{ width: 200, flexShrink: 0 }}>
+        {/* 스토어 목록 — PC: 세로 사이드바 / 모바일: 가로 스크롤 탭 */}
+        <Box sx={{ width: { xs: '100%', sm: 200 }, flexShrink: 0 }}>
           <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#adb5bd', mb: 1, px: 0.5 }}>스토어</Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'row', sm: 'column' },
+            gap: 0.5,
+            overflowX: { xs: 'auto', sm: 'visible' },
+            pb: { xs: 0.5, sm: 0 },
+          }}>
             {stores.map(store => (
               <Box
                 key={store.id}
@@ -193,6 +199,8 @@ export default function StoresPage() {
                   color: activeStoreId === store.id ? '#fff' : '#495057',
                   fontWeight: activeStoreId === store.id ? 600 : 400,
                   fontSize: '0.875rem',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   '&:hover': { backgroundColor: activeStoreId === store.id ? '#343a40' : '#f1f3f5', '& .delete-btn': { opacity: 1 } },
                   transition: 'all 0.1s',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -204,6 +212,7 @@ export default function StoresPage() {
                   size="small"
                   onClick={(e) => { e.stopPropagation(); setDeleteStoreConfirm(store.id); }}
                   sx={{
+                    display: { xs: 'none', sm: 'flex' },
                     opacity: 0, transition: 'opacity 0.1s', p: 0.3,
                     color: activeStoreId === store.id ? 'rgba(255,255,255,0.6)' : '#adb5bd',
                     '&:hover': { color: activeStoreId === store.id ? '#fff' : '#e03131', backgroundColor: 'transparent' },
@@ -216,12 +225,13 @@ export default function StoresPage() {
           </Box>
         </Box>
 
-        <Divider orientation="vertical" flexItem sx={{ borderColor: '#f1f3f5' }} />
+        <Divider orientation="vertical" flexItem sx={{ borderColor: '#f1f3f5', display: { xs: 'none', sm: 'block' } }} />
+        <Divider sx={{ borderColor: '#f1f3f5', width: '100%', display: { xs: 'block', sm: 'none' } }} />
 
-        {/* 우: 플랫폼 연동 */}
-        <Box sx={{ flex: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#1a1a1b' }}>
+        {/* 플랫폼 연동 */}
+        <Box sx={{ flex: 1, width: { xs: '100%', sm: 'auto' } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: { xs: '0.95rem', sm: '1rem' }, color: '#1a1a1b' }}>
               {stores.find(s => s.id === activeStoreId)?.name ?? ''} 플랫폼 연동
             </Typography>
             {availablePlatforms.length > 0 && (
@@ -260,10 +270,10 @@ export default function StoresPage() {
                 if (!p) return null;
                 return (
                   <Paper key={integration.platform} elevation={0} sx={cardSx}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{
-                          width: 8, height: 8, borderRadius: '50%',
+                          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
                           backgroundColor: integration.is_active ? '#2b8a3e' : '#adb5bd',
                         }} />
                         <Typography sx={{ fontWeight: 600, fontSize: '0.95rem', color: p.color }}>
@@ -279,8 +289,8 @@ export default function StoresPage() {
                           }}
                         />
                       </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Typography sx={{ fontSize: '0.72rem', color: '#adb5bd', mr: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <Typography sx={{ fontSize: '0.72rem', color: '#adb5bd', display: { xs: 'none', sm: 'block' }, mr: 0.5 }}>
                           {new Date(integration.updated_at).toLocaleDateString('ko-KR')} 수정
                         </Typography>
                         {integration.platform === 'smartstore' && (
@@ -288,7 +298,7 @@ export default function StoresPage() {
                             size="small"
                             disabled={testingPlatform === integration.platform}
                             onClick={() => handleTestConnection(integration.platform)}
-                            sx={{ fontSize: '0.72rem', color: '#868e96', border: '1px solid #dee2e6', borderRadius: 1.5, px: 1, py: 0.3, minWidth: 0, mr: 0.5 }}
+                            sx={{ fontSize: '0.72rem', color: '#868e96', border: '1px solid #dee2e6', borderRadius: 1.5, px: 1, py: 0.3, minWidth: 0 }}
                           >
                             {testingPlatform === integration.platform ? '테스트 중...' : '연결 테스트'}
                           </Button>

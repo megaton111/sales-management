@@ -140,9 +140,9 @@ function CalcTable({
   const profitColor = (n: number) => n >= 0 ? '#2b8a3e' : '#e03131';
 
   return (
-    <Paper elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3, overflow: 'hidden', mb: 4 }}>
-      <Box sx={{ px: 2.5, pt: 2.5, pb: 1.5 }}>
-        <Typography sx={{ fontWeight: 700, fontSize: '1rem', color: '#1a1a1b' }}>{title}</Typography>
+    <Paper elevation={0} sx={{ border: '1px solid rgba(0,0,0,0.04)', borderRadius: 3, overflowX: 'auto', mb: { xs: 2.5, sm: 4 } }}>
+      <Box sx={{ px: { xs: 1.5, sm: 2.5 }, pt: { xs: 1.5, sm: 2.5 }, pb: 1.5 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: { xs: '0.9rem', sm: '1rem' }, color: '#1a1a1b' }}>{title}</Typography>
       </Box>
 
       <TableContainer>
@@ -233,8 +233,8 @@ export default function MarginPage() {
   const [naverRows, setNaverRows] = useState<Row[]>([emptyRow(1, 3200), emptyRow(2, 3200)]);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', color: '#1a1a1b', letterSpacing: '-0.02em', mb: 3 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 } }}>
+      <Typography sx={{ fontWeight: 700, fontSize: { xs: '1.1rem', sm: '1.5rem' }, color: '#1a1a1b', letterSpacing: '-0.02em', mb: { xs: 2, sm: 3 } }}>
         마진계산기
       </Typography>
 
